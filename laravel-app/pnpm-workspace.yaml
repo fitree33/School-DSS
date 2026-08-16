@@ -1,2 +1,8 @@
 allowBuilds:
-  esbuild: set this to true or false
+  esbuild: true
+
+engineStrict: true
+nodeVersion: 22.10.0
+packageManagerStrict: true
+packageManagerStrictVersion: true
+strictDepBuilds: true
