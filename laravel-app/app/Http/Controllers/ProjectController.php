@@ -1,0 +1,263 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\AuditLog;
+use App\Models\Project;
+use App\Models\ProjectAccess;
+use App\Models\ProjectStatusHistory;
+use App\Models\ProjectStatus;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+class ProjectController extends Controller
+{
+    private const BUDGET_SOURCES = [
+        'เงินอุดหนุนรายหัว',
+        'เงินกิจกรรมพัฒนาผู้เรียน',
+        'เงินรายได้สถานศึกษา',
+        'งบประมาณ สพฐ.',
+        'เงินบริจาค/ผ้าป่าการศึกษา',
+        'อื่น ๆ',
+    ];
+
+    public function index(Request $request)
+    {
+        $this->authorize('viewAny', Project::class);
+
+        $projects = Project::query()
+            ->visibleTo($request->user())
+            ->with(['status', 'academicYear', 'department', 'owner'])
+            ->latest()
+            ->paginate(10);
+
+        return view('projects.index', compact('projects'));
+    }
+
+    public function create()
+    {
+        $this->authorize('create', Project::class);
+
+        $this->ensureLookups();
+
+        return view('projects.create', [
+            'departments' => DB::table('departments')->orderBy('name')->get(),
+            'categories' => DB::table('project_categories')->orderBy('name')->get(),
+            'years' => DB::table('academic_years')->orderByDesc('year')->get(),
+            'statuses' => DB::table('project_statuses')->orderBy('sort_order')->orderBy('name')->get(),
+            'budgetSources' => self::BUDGET_SOURCES,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $this->authorize('create', Project::class);
+
+        $this->ensureLookups();
+
+        $data = $this->validateProject($request);
+        $kpis = $data['kpis'] ?? [];
+        unset($data['kpis']);
+        $data['user_id'] = $request->user()->id;
+        $data['responsible_person'] = $data['responsible_person'] ?: $request->user()->name;
+        $data['project_status_id'] = ProjectStatus::where('code', 'draft')->value('id');
+
+        $project = DB::transaction(function () use ($data, $kpis, $request) {
+            $project = Project::create($data);
+
+            $this->syncKpis($project, $kpis);
+
+            ProjectAccess::create([
+                'project_id' => $project->id,
+                'user_id' => $request->user()->id,
+                'can_view' => true,
+                'can_edit' => true,
+                'can_delete' => true,
+                'granted_by' => $request->user()->id,
+            ]);
+
+            ProjectStatusHistory::create([
+                'project_id' => $project->id,
+                'to_status_id' => $project->project_status_id,
+                'changed_by' => $request->user()->id,
+                'comment' => 'สร้างโครงการ',
+            ]);
+
+            AuditLog::record('project.created', $project, [], $project->getAttributes());
+
+            return $project;
+        });
+
+        return redirect()
+            ->route('projects.show', $project)
+            ->with('success', 'เพิ่มโครงการเรียบร้อยแล้ว');
+    }
+
+    public function show(Project $project)
+    {
+        $this->authorize('view', $project);
+
+        $project->load([
+            'documents.uploader',
+            'statusHistory.fromStatus',
+            'statusHistory.toStatus',
+            'statusHistory.changedBy',
+            'status',
+            'academicYear',
+            'department',
+            'category',
+            'owner',
+            'latestDssResult.generator',
+            'evaluations.evaluator',
+            'kpis',
+            'completionReports.reporter',
+        ]);
+
+        return view('projects.show', compact('project'));
+    }
+
+    public function edit(Project $project)
+    {
+        $this->authorize('update', $project);
+
+        $this->ensureLookups();
+        $project->load(['status', 'kpis']);
+
+        return view('projects.edit', [
+            'project' => $project,
+            'departments' => DB::table('departments')->orderBy('name')->get(),
+            'categories' => DB::table('project_categories')->orderBy('name')->get(),
+            'years' => DB::table('academic_years')->orderByDesc('year')->get(),
+            'statuses' => DB::table('project_statuses')->orderBy('sort_order')->orderBy('name')->get(),
+            'budgetSources' => self::BUDGET_SOURCES,
+        ]);
+    }
+
+    public function update(Request $request, Project $project)
+    {
+        $this->authorize('update', $project);
+
+        $data = $this->validateProject($request, $project);
+        $kpis = $data['kpis'] ?? [];
+        unset($data['kpis']);
+        $oldValues = $project->only(array_keys($data));
+
+        DB::transaction(function () use ($data, $kpis, $oldValues, $project) {
+            $project->update($data);
+            $this->syncKpis($project, $kpis);
+
+            AuditLog::record('project.updated', $project, $oldValues, $project->only(array_keys($data)));
+        });
+
+        return redirect()
+            ->route('projects.show', $project)
+            ->with('success', 'แก้ไขโครงการเรียบร้อยแล้ว');
+    }
+
+    public function destroy(Project $project)
+    {
+        $this->authorize('delete', $project);
+
+        DB::transaction(function () use ($project) {
+            AuditLog::record('project.deleted', $project, $project->getAttributes());
+            $project->delete();
+        });
+
+        return redirect()
+            ->route('projects.index')
+            ->with('success', 'ลบโครงการเรียบร้อยแล้ว และสามารถกู้คืนได้');
+    }
+
+    private function validateProject(Request $request, ?Project $project = null): array
+    {
+        $rules = [
+            'name' => ['required', 'string', 'max:255'],
+            'project_code' => [
+                'nullable',
+                'string',
+                'max:50',
+                Rule::unique('projects', 'project_code')->ignore($project?->id),
+            ],
+            'objective' => ['required', 'string'],
+            'description' => ['nullable', 'string'],
+            'rationale' => ['nullable', 'string'],
+            'target_group' => ['nullable', 'string', 'max:2000'],
+            'strategy' => ['nullable', 'string', 'max:2000'],
+            'budget' => ['nullable', 'numeric', 'min:0'],
+            'budget_source' => ['nullable', Rule::in(self::BUDGET_SOURCES)],
+            'responsible_person' => ['nullable', 'string', 'max:255'],
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
+            'department_id' => ['required', 'exists:departments,id'],
+            'project_category_id' => ['required', 'exists:project_categories,id'],
+            'academic_year_id' => ['required', 'exists:academic_years,id'],
+            'kpis' => ['nullable', 'array', 'max:20'],
+            'kpis.*.id' => ['nullable', 'integer'],
+            'kpis.*.name' => ['required_with:kpis', 'string', 'max:255'],
+            'kpis.*.target_value' => ['nullable', 'numeric'],
+            'kpis.*.unit' => ['nullable', 'string', 'max:50'],
+        ];
+
+        return $request->validate($rules);
+    }
+
+    private function syncKpis(Project $project, array $rows): void
+    {
+        $keptIds = [];
+
+        foreach ($rows as $row) {
+            $attributes = [
+                'name' => $row['name'],
+                'target_value' => $row['target_value'] ?? null,
+                'unit' => $row['unit'] ?? null,
+            ];
+
+            $kpi = filled($row['id'] ?? null)
+                ? $project->kpis()->whereKey($row['id'])->first()
+                : null;
+
+            if ($kpi) {
+                $kpi->update($attributes);
+            } else {
+                $kpi = $project->kpis()->create($attributes);
+            }
+
+            $keptIds[] = $kpi->id;
+        }
+
+        $project->kpis()
+            ->when($keptIds, fn ($query) => $query->whereNotIn('id', $keptIds))
+            ->delete();
+    }
+
+    private function ensureLookups(): void
+    {
+        foreach (['ฝ่ายวิชาการ', 'ฝ่ายงบประมาณ', 'ฝ่ายบุคคล', 'ฝ่ายบริหารทั่วไป'] as $name) {
+            DB::table('departments')->updateOrInsert(['name' => $name], []);
+        }
+
+        foreach (['วิชาการ', 'เทคโนโลยี', 'กีฬา', 'สิ่งแวดล้อม'] as $name) {
+            DB::table('project_categories')->updateOrInsert(['name' => $name], []);
+        }
+
+        foreach ([
+            ['name' => 'Draft', 'code' => 'draft', 'color' => 'slate', 'sort_order' => 10, 'is_terminal' => false],
+            ['name' => 'Returned for Revision', 'code' => 'returned', 'color' => 'rose', 'sort_order' => 15, 'is_terminal' => false],
+            ['name' => 'Pending Deputy Review', 'code' => 'pending_deputy', 'color' => 'amber', 'sort_order' => 20, 'is_terminal' => false],
+            ['name' => 'Pending Director Approval', 'code' => 'pending_director', 'color' => 'amber', 'sort_order' => 30, 'is_terminal' => false],
+            ['name' => 'Approved', 'code' => 'approved', 'color' => 'emerald', 'sort_order' => 40, 'is_terminal' => false],
+            ['name' => 'Rejected', 'code' => 'rejected', 'color' => 'rose', 'sort_order' => 50, 'is_terminal' => true],
+            ['name' => 'In Progress', 'code' => 'in_progress', 'color' => 'blue', 'sort_order' => 60, 'is_terminal' => false],
+            ['name' => 'Completed', 'code' => 'completed', 'color' => 'violet', 'sort_order' => 70, 'is_terminal' => true],
+            ['name' => 'Archived', 'code' => 'archived', 'color' => 'slate', 'sort_order' => 80, 'is_terminal' => true],
+        ] as $status) {
+            DB::table('project_statuses')->updateOrInsert(['code' => $status['code']], $status);
+        }
+
+        DB::table('academic_years')->updateOrInsert(
+            ['year' => 2569],
+            ['is_active' => true, 'is_locked' => false]
+        );
+    }
+}

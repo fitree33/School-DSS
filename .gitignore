@@ -1,0 +1,42 @@
+# Local environment and authentication secrets
+.env
+.env.*
+!.env.example
+!.env.*.example
+auth.json
+
+# Database dumps and backups
+/database-backups/
+*.sql
+*.sql.gz
+*.dump
+
+# User uploads and private Laravel storage
+/laravel-app/storage/app/backups/
+/laravel-app/storage/app/project-documents/
+/laravel-app/storage/app/uploads/
+/laravel-app/storage/app/private/
+/laravel-app/public/storage
+
+# PHP and JavaScript dependencies
+**/vendor/
+**/node_modules/
+/.pnpm-store/
+**/.pnpm-store/
+
+# Generated frontend assets and caches
+/laravel-app/public/build/
+/laravel-app/public/hot
+/.phpunit.cache/
+**/.phpunit.cache/
+*.log
+
+# Foundation-only local runtimes and staging data
+/.foundation-tools/
+/.foundation-runtime/
+
+# IDE and operating-system metadata
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
