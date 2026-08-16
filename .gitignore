@@ -29,11 +29,28 @@ auth.json
 /laravel-app/public/hot
 /.phpunit.cache/
 **/.phpunit.cache/
+**/.phpunit.result.cache
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/.nyc_output/
+**/*.tsbuildinfo
+**/.eslintcache
 *.log
 
 # Foundation-only local runtimes and staging data
 /.foundation-tools/
 /.foundation-runtime/
+
+# Private keys and package-manager credentials
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/.npmrc
+**/.netrc
+**/credentials*.json
+**/service-account*.json
 
 # IDE and operating-system metadata
 /.vscode/
