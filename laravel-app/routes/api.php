@@ -1,8 +1,13 @@
 <?php
 
+use App\Http\Controllers\Api\ProjectSummaryController;
+use App\Http\Controllers\Api\V2\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Api\V2\Auth\MeController;
+use App\Http\Controllers\Api\V2\ProjectController as V2ProjectController;
+use App\Http\Controllers\Api\V2\ProjectOptionsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Api\ProjectSummaryController;
+use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,3 +25,21 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 });
 
 Route::post('/projects/{project}/ai-summary', [ProjectSummaryController::class, 'store']);
+
+Route::prefix('v2')
+    ->as('api.v2.')
+    ->middleware(EnsureFrontendRequestsAreStateful::class)
+    ->group(function () {
+        Route::post('/auth/login', [AuthenticatedSessionController::class, 'store'])
+            ->name('auth.login');
+
+        Route::middleware(['auth:web', 'active-user'])->group(function () {
+            Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])
+                ->name('auth.logout');
+            Route::get('/me', MeController::class)->name('me');
+            Route::get('/project-options', ProjectOptionsController::class)
+                ->name('project-options');
+            Route::apiResource('projects', V2ProjectController::class)
+                ->only(['index', 'store', 'show', 'update', 'destroy']);
+        });
+    });

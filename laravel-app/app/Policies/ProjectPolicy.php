@@ -36,26 +36,30 @@ class ProjectPolicy
     {
         $ownerCanEdit = $project->user_id === $user->id
             && in_array($project->status?->code, ['draft', 'returned'], true);
+        $delegatedCanEdit = $project->user_id !== $user->id
+            && $project->hasAccess($user, 'edit');
 
         return $ownerCanEdit
             || $user->hasPermission('projects.edit_all')
             || ($user->department_id
                 && $project->department_id === $user->department_id
                 && $user->hasPermission('projects.edit_department'))
-            || $project->hasAccess($user, 'edit');
+            || $delegatedCanEdit;
     }
 
     public function delete(User $user, Project $project): bool
     {
         $ownerCanDelete = $project->user_id === $user->id
             && in_array($project->status?->code, ['draft', 'returned'], true);
+        $delegatedCanDelete = $project->user_id !== $user->id
+            && $project->hasAccess($user, 'delete');
 
         return $ownerCanDelete
             || $user->hasPermission('projects.delete_all')
             || ($user->department_id
                 && $project->department_id === $user->department_id
                 && $user->hasPermission('projects.delete_department'))
-            || $project->hasAccess($user, 'delete');
+            || $delegatedCanDelete;
     }
 
     public function restore(User $user, Project $project): bool

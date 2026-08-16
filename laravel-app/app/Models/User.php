@@ -4,8 +4,8 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
@@ -82,9 +82,23 @@ class User extends Authenticatable
             return false;
         }
 
-        return $this->role()
-            ->whereHas('permissions', fn ($query) => $query->where('code', $permission))
-            ->exists();
+        $this->loadMissing('role.permissions');
+
+        return $this->role?->permissions->contains('code', $permission) ?? false;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public function permissionCodes(): array
+    {
+        if ($this->is_active === false || ! $this->role_id) {
+            return [];
+        }
+
+        $this->loadMissing('role.permissions');
+
+        return $this->role?->permissions->pluck('code')->sort()->values()->all() ?? [];
     }
 
     public function hasRole(string $roleCode): bool
