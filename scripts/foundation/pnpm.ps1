@@ -17,7 +17,14 @@ $npmCache = if ($env:SCHOOL_DSS_NPM_CACHE) {
     'D:\School-DSS-Foundation\npm-cache'
 }
 
+$pnpmStore = if ($env:SCHOOL_DSS_PNPM_STORE) {
+    $env:SCHOOL_DSS_PNPM_STORE
+} else {
+    'D:\School-DSS-Foundation\pnpm-store'
+}
+
 $env:npm_config_cache = $npmCache
+$env:pnpm_config_store_dir = $pnpmStore
 
 Push-Location $workspaceRoot
 

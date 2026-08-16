@@ -1,16 +1,16 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DecisionSupportController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectAccessController;
+use App\Http\Controllers\ProjectController;
 use App\Http\Controllers\ProjectDocumentController;
 use App\Http\Controllers\ProjectEvaluationController;
+use App\Http\Controllers\ProjectNotificationController;
 use App\Http\Controllers\ProjectSearchController;
 use App\Http\Controllers\ProjectWorkflowController;
-use App\Http\Controllers\ProjectNotificationController;
 use App\Http\Controllers\UserManagementController;
-use App\Http\Controllers\DecisionSupportController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -54,3 +54,7 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
+
+Route::view('/app/{path?}', 'spa')
+    ->where('path', '.*')
+    ->name('spa');
