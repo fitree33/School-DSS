@@ -2,14 +2,23 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Project extends Model
 {
     use HasFactory, SoftDeletes;
+
+    public const BUDGET_SOURCES = [
+        'เงินอุดหนุนรายหัว',
+        'เงินกิจกรรมพัฒนาผู้เรียน',
+        'เงินรายได้สถานศึกษา',
+        'งบประมาณ สพฐ.',
+        'เงินบริจาค/ผ้าป่าการศึกษา',
+        'อื่น ๆ',
+    ];
 
     protected $fillable = [
         'name',
@@ -19,11 +28,15 @@ class Project extends Model
         'rationale',
         'target_group',
         'strategy',
+        'key_points',
         'ai_summary',
         'ai_summarized_at',
         'budget',
         'budget_source',
         'responsible_person',
+        'monitor_person',
+        'evaluation_method',
+        'evaluation_tools',
         'actual_spent',
         'start_date',
         'end_date',
@@ -35,7 +48,11 @@ class Project extends Model
         'department_id',
         'project_category_id',
         'academic_year_id',
+        'fiscal_year_id',
+        'school_plan_id',
         'project_status_id',
+        'project_execution_status_id',
+        'evaluation_status_id',
     ];
 
     protected $casts = [
@@ -65,9 +82,29 @@ class Project extends Model
         return $this->belongsTo(AcademicYear::class);
     }
 
+    public function fiscalYear()
+    {
+        return $this->belongsTo(FiscalYear::class);
+    }
+
+    public function schoolPlan()
+    {
+        return $this->belongsTo(SchoolPlan::class);
+    }
+
     public function status()
     {
         return $this->belongsTo(ProjectStatus::class, 'project_status_id');
+    }
+
+    public function executionStatus()
+    {
+        return $this->belongsTo(ProjectExecutionStatus::class, 'project_execution_status_id');
+    }
+
+    public function evaluationStatus()
+    {
+        return $this->belongsTo(EvaluationStatus::class);
     }
 
     public function category()
@@ -88,6 +125,11 @@ class Project extends Model
     public function statusHistory()
     {
         return $this->hasMany(ProjectStatusHistory::class)->latest();
+    }
+
+    public function executionStatusHistory()
+    {
+        return $this->hasMany(ProjectExecutionStatusHistory::class)->latest();
     }
 
     public function evaluations()
@@ -144,6 +186,18 @@ class Project extends Model
 
     public function hasAccess(User $user, string $ability): bool
     {
+        if (! in_array($ability, ['view', 'edit', 'delete'], true)) {
+            return false;
+        }
+
+        if ($this->relationLoaded('accessEntries')) {
+            return $this->accessEntries->contains(function (ProjectAccess $access) use ($user, $ability) {
+                return (int) $access->user_id === (int) $user->id
+                    && $access->{"can_{$ability}"}
+                    && ($access->expires_at === null || $access->expires_at->isFuture());
+            });
+        }
+
         return $this->accessEntries()
             ->where('user_id', $user->id)
             ->where("can_{$ability}", true)

@@ -3,10 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
+use App\Models\EvaluationStatus;
 use App\Models\Project;
 use App\Models\ProjectAccess;
-use App\Models\ProjectStatusHistory;
+use App\Models\ProjectExecutionStatus;
+use App\Models\ProjectExecutionStatusHistory;
 use App\Models\ProjectStatus;
+use App\Models\ProjectStatusHistory;
+use Database\Seeders\ProjectStatusSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -62,6 +66,12 @@ class ProjectController extends Controller
         $data['user_id'] = $request->user()->id;
         $data['responsible_person'] = $data['responsible_person'] ?: $request->user()->name;
         $data['project_status_id'] = ProjectStatus::where('code', 'draft')->value('id');
+        $data['project_execution_status_id'] = ProjectExecutionStatus::where('code', 'not_started')
+            ->firstOrFail()
+            ->id;
+        $data['evaluation_status_id'] = EvaluationStatus::where('code', 'pending')
+            ->firstOrFail()
+            ->id;
 
         $project = DB::transaction(function () use ($data, $kpis, $request) {
             $project = Project::create($data);
@@ -82,6 +92,14 @@ class ProjectController extends Controller
                 'to_status_id' => $project->project_status_id,
                 'changed_by' => $request->user()->id,
                 'comment' => 'สร้างโครงการ',
+            ]);
+
+            ProjectExecutionStatusHistory::create([
+                'project_id' => $project->id,
+                'from_status_id' => null,
+                'to_status_id' => $project->project_execution_status_id,
+                'changed_by' => $request->user()->id,
+                'comment' => 'กำหนดสถานะเริ่มต้นจากหน้าจอเดิม',
             ]);
 
             AuditLog::record('project.created', $project, [], $project->getAttributes());
@@ -184,7 +202,7 @@ class ProjectController extends Controller
             'rationale' => ['nullable', 'string'],
             'target_group' => ['nullable', 'string', 'max:2000'],
             'strategy' => ['nullable', 'string', 'max:2000'],
-            'budget' => ['nullable', 'numeric', 'min:0'],
+            'budget' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'budget_source' => ['nullable', Rule::in(self::BUDGET_SOURCES)],
             'responsible_person' => ['nullable', 'string', 'max:255'],
             'start_date' => ['nullable', 'date'],
@@ -241,19 +259,7 @@ class ProjectController extends Controller
             DB::table('project_categories')->updateOrInsert(['name' => $name], []);
         }
 
-        foreach ([
-            ['name' => 'Draft', 'code' => 'draft', 'color' => 'slate', 'sort_order' => 10, 'is_terminal' => false],
-            ['name' => 'Returned for Revision', 'code' => 'returned', 'color' => 'rose', 'sort_order' => 15, 'is_terminal' => false],
-            ['name' => 'Pending Deputy Review', 'code' => 'pending_deputy', 'color' => 'amber', 'sort_order' => 20, 'is_terminal' => false],
-            ['name' => 'Pending Director Approval', 'code' => 'pending_director', 'color' => 'amber', 'sort_order' => 30, 'is_terminal' => false],
-            ['name' => 'Approved', 'code' => 'approved', 'color' => 'emerald', 'sort_order' => 40, 'is_terminal' => false],
-            ['name' => 'Rejected', 'code' => 'rejected', 'color' => 'rose', 'sort_order' => 50, 'is_terminal' => true],
-            ['name' => 'In Progress', 'code' => 'in_progress', 'color' => 'blue', 'sort_order' => 60, 'is_terminal' => false],
-            ['name' => 'Completed', 'code' => 'completed', 'color' => 'violet', 'sort_order' => 70, 'is_terminal' => true],
-            ['name' => 'Archived', 'code' => 'archived', 'color' => 'slate', 'sort_order' => 80, 'is_terminal' => true],
-        ] as $status) {
-            DB::table('project_statuses')->updateOrInsert(['code' => $status['code']], $status);
-        }
+        app(ProjectStatusSeeder::class)->run();
 
         DB::table('academic_years')->updateOrInsert(
             ['year' => 2569],

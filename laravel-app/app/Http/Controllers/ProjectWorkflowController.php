@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\AuditLog;
 use App\Models\Project;
+use App\Models\ProjectCompletionReport;
+use App\Models\ProjectExecutionStatus;
+use App\Models\ProjectExecutionStatusHistory;
+use App\Models\ProjectNotification;
 use App\Models\ProjectStatus;
 use App\Models\ProjectStatusHistory;
-use App\Models\ProjectNotification;
-use App\Models\ProjectCompletionReport;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,7 +78,7 @@ class ProjectWorkflowController extends Controller
         $data = $request->validate([
             'success_percent' => ['required', 'numeric', 'min:0', 'max:100'],
             'quality_score' => ['required', 'numeric', 'min:0', 'max:5'],
-            'actual_spent' => ['required', 'numeric', 'min:0'],
+            'actual_spent' => ['required', 'numeric', 'decimal:0,2', 'min:0', 'max:9999999999.99'],
             'summary' => ['required', 'string', 'max:5000'],
             'problems' => ['nullable', 'string', 'max:3000'],
             'suggestions' => ['nullable', 'string', 'max:3000'],
@@ -105,11 +107,41 @@ class ProjectWorkflowController extends Controller
 
             $project->update(['actual_spent' => $data['actual_spent']]);
             $this->transition($project, 'completed', $request->user(), 'บันทึกรายงานผลและปิดโครงการ');
+            $this->completeExecutionStatus($project, $request->user());
         });
 
         $this->notifyRole('director', $project, 'โครงการรายงานผลแล้ว', "โครงการ {$project->name} บันทึกผลการดำเนินงานเรียบร้อยแล้ว", 'completed');
 
         return back()->with('success', 'บันทึกผลการดำเนินงานและปิดโครงการแล้ว');
+    }
+
+    private function completeExecutionStatus(Project $project, User $user): void
+    {
+        $completedStatusId = ProjectExecutionStatus::query()
+            ->where('code', 'completed')
+            ->firstOrFail()
+            ->id;
+        $fromStatusId = $project->project_execution_status_id;
+
+        if ((int) $fromStatusId === (int) $completedStatusId) {
+            return;
+        }
+
+        $project->update(['project_execution_status_id' => $completedStatusId]);
+
+        ProjectExecutionStatusHistory::create([
+            'project_id' => $project->id,
+            'from_status_id' => $fromStatusId,
+            'to_status_id' => $completedStatusId,
+            'changed_by' => $user->id,
+            'comment' => 'ปิดโครงการผ่านขั้นตอนรายงานผลเดิม',
+        ]);
+
+        AuditLog::record('project.execution_status_changed', $project, [
+            'project_execution_status_id' => $fromStatusId,
+        ], [
+            'project_execution_status_id' => $completedStatusId,
+        ]);
     }
 
     private function transition(Project $project, string $nextCode, $user, string $comment): void

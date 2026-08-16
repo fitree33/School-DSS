@@ -12,6 +12,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(ProjectStatusSeeder::class);
         $this->call(AuthorizationSeeder::class);
         $this->call(EvaluationCriteriaSeeder::class);
 
