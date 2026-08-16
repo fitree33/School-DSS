@@ -19,3 +19,5 @@ Baseline observations on 2026-08-17:
 `legacy-assets.sha256` is the integrity manifest for the ignored legacy assets.
 The files themselves must be preserved separately and must not be deleted or
 replaced during the foundation upgrade.
+
+The completed verification record is in `PHASE-1-RESULTS.md`.
