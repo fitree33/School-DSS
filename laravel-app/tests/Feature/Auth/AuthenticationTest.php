@@ -64,4 +64,17 @@ class AuthenticationTest extends TestCase
         $this->assertGuest();
         $response->assertRedirect('/login');
     }
+
+    public function test_legacy_remember_checkbox_value_is_accepted(): void
+    {
+        $user = User::factory()->create(['is_active' => true]);
+
+        $this->post('/login', [
+            'email' => $user->email,
+            'password' => 'password',
+            'remember' => 'on',
+        ])->assertRedirect(RouteServiceProvider::HOME);
+
+        $this->assertAuthenticatedAs($user);
+    }
 }
