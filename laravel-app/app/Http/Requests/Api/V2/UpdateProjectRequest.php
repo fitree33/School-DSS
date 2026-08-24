@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V2;
 
+use App\Models\FiscalYear;
 use App\Models\Project;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -118,6 +119,8 @@ class UpdateProjectRequest extends FormRequest
                 }
             },
             fn (Validator $validator) => $this->validateDateRange($validator),
+            fn (Validator $validator) => $this->validateFiscalYearIsWritable($validator),
+            fn (Validator $validator) => $this->validateExecutionTransition($validator),
             function (Validator $validator): void {
                 $user = $this->user();
 
@@ -181,6 +184,47 @@ class UpdateProjectRequest extends FormRequest
 
         if ($duplicateExists) {
             $validator->errors()->add('project_code', 'The project code has already been taken.');
+        }
+    }
+
+    private function validateFiscalYearIsWritable(Validator $validator): void
+    {
+        if (! $this->exists('fiscal_year_id') || $validator->errors()->has('fiscal_year_id')) {
+            return;
+        }
+
+        $fiscalYear = FiscalYear::query()->find($this->integer('fiscal_year_id'));
+
+        if ($fiscalYear?->is_locked) {
+            $validator->errors()->add(
+                'fiscal_year_id',
+                'The selected fiscal year is locked and read-only.'
+            );
+        }
+    }
+
+    private function validateExecutionTransition(Validator $validator): void
+    {
+        if (! $this->exists('execution_status') || $validator->errors()->has('execution_status')) {
+            return;
+        }
+
+        /** @var Project|null $project */
+        $project = $this->route('project');
+        $current = $project?->executionStatus?->code;
+        $requested = $this->string('execution_status')->toString();
+        $allowed = match ($current) {
+            'not_started' => ['not_started', 'in_progress'],
+            'in_progress' => ['in_progress', 'completed'],
+            'completed' => ['completed'],
+            default => ['not_started'],
+        };
+
+        if (! in_array($requested, $allowed, true)) {
+            $validator->errors()->add(
+                'execution_status',
+                'The requested execution status is not a permitted next step.'
+            );
         }
     }
 }

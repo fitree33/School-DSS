@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProjectSummaryController extends Controller
 {
@@ -23,29 +24,40 @@ class ProjectSummaryController extends Controller
             'document_id' => ['nullable', 'integer'],
         ]);
 
-        $oldSummary = $project->ai_summary;
-        $project->update(['ai_summary' => $data['summary'], 'ai_summarized_at' => now()]);
+        return DB::transaction(function () use ($project, $data) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
 
-        $documentQuery = ProjectDocument::query()
-            ->where('project_id', $project->id)
-            ->when(
-                $data['document_id'] ?? null,
-                fn ($query, $documentId) => $query->whereKey($documentId),
-                fn ($query) => $query->where('processing_status', 'processing')->latest()
-            );
+            if ($project->fiscalYear?->is_locked) {
+                return response()->json([
+                    'message' => 'The project fiscal year is locked and read-only.',
+                    'code' => 'fiscal_year_locked',
+                ], 423);
+            }
 
-        $documentQuery->first()?->update([
-            'processing_status' => 'completed',
-            'processed_at' => now(),
-            'processing_error' => null,
-        ]);
+            $oldSummary = $project->ai_summary;
+            $project->update(['ai_summary' => $data['summary'], 'ai_summarized_at' => now()]);
 
-        AuditLog::record('project.ai_summary_updated', $project, [
-            'ai_summary' => $oldSummary,
-        ], [
-            'ai_summary' => $project->ai_summary,
-        ]);
+            $documentQuery = ProjectDocument::query()
+                ->where('project_id', $project->id)
+                ->when(
+                    $data['document_id'] ?? null,
+                    fn ($query, $documentId) => $query->whereKey($documentId),
+                    fn ($query) => $query->where('processing_status', 'processing')->latest()
+                );
 
-        return response()->json(['success' => true, 'project_id' => $project->id]);
+            $documentQuery->first()?->update([
+                'processing_status' => 'completed',
+                'processed_at' => now(),
+                'processing_error' => null,
+            ]);
+
+            AuditLog::record('project.ai_summary_updated', $project, [
+                'ai_summary' => $oldSummary,
+            ], [
+                'ai_summary' => $project->ai_summary,
+            ]);
+
+            return response()->json(['success' => true, 'project_id' => $project->id]);
+        }, 3);
     }
 }

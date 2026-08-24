@@ -34,6 +34,10 @@ class ProjectPolicy
 
     public function update(User $user, Project $project): bool
     {
+        if ($this->isLocked($project)) {
+            return false;
+        }
+
         $ownerCanEdit = $project->user_id === $user->id
             && in_array($project->status?->code, ['draft', 'returned'], true);
         $delegatedCanEdit = $project->user_id !== $user->id
@@ -49,6 +53,10 @@ class ProjectPolicy
 
     public function delete(User $user, Project $project): bool
     {
+        if ($this->isLocked($project)) {
+            return false;
+        }
+
         $ownerCanDelete = $project->user_id === $user->id
             && in_array($project->status?->code, ['draft', 'returned'], true);
         $delegatedCanDelete = $project->user_id !== $user->id
@@ -64,7 +72,8 @@ class ProjectPolicy
 
     public function restore(User $user, Project $project): bool
     {
-        return $user->hasPermission('projects.delete_all');
+        return ! $this->isLocked($project)
+            && $user->hasPermission('projects.delete_all');
     }
 
     public function forceDelete(User $user, Project $project): bool
@@ -74,37 +83,50 @@ class ProjectPolicy
 
     public function manageAccess(User $user, Project $project): bool
     {
-        return $user->hasPermission('projects.manage_access');
+        return ! $this->isLocked($project)
+            && $user->hasPermission('projects.manage_access');
     }
 
     public function evaluate(User $user, Project $project): bool
     {
-        return $this->view($user, $project) && $user->hasPermission('projects.evaluate');
+        return ! $this->isLocked($project)
+            && $this->view($user, $project)
+            && $user->hasPermission('projects.evaluate');
     }
 
     public function submit(User $user, Project $project): bool
     {
-        return $project->user_id === $user->id
+        return ! $this->isLocked($project)
+            && $project->user_id === $user->id
             && in_array($project->status?->code, ['draft', 'returned'], true);
     }
 
     public function screen(User $user, Project $project): bool
     {
-        return $user->hasRole('deputy_director')
+        return ! $this->isLocked($project)
+            && $user->hasRole('deputy_director')
             && $project->status?->code === 'pending_deputy';
     }
 
     public function decide(User $user, Project $project): bool
     {
-        return $user->hasRole('director')
+        return ! $this->isLocked($project)
+            && $user->hasRole('director')
             && $project->status?->code === 'pending_director';
     }
 
     public function complete(User $user, Project $project): bool
     {
-        return in_array($project->status?->code, ['approved', 'in_progress'], true)
+        return ! $this->isLocked($project)
+            && $project->executionStatus?->code === 'in_progress'
+            && in_array($project->status?->code, ['approved', 'in_progress'], true)
             && ($project->user_id === $user->id
                 || $user->hasRole('deputy_director')
                 || $user->hasRole('director'));
+    }
+
+    private function isLocked(Project $project): bool
+    {
+        return $project->fiscalYear?->is_locked === true;
     }
 }

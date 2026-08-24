@@ -7,6 +7,7 @@ use App\Models\Project;
 use App\Models\ProjectAccess;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class ProjectAccessController extends Controller
 {
@@ -48,12 +49,14 @@ class ProjectAccessController extends Controller
             ->pluck('id')
             ->map(fn ($id) => (int) $id);
 
-        $oldAccess = ProjectAccess::where('project_id', $project->id)
-            ->where('user_id', '!=', $project->user_id)
-            ->get()
-            ->toArray();
+        DB::transaction(function () use ($validated, $activeUserIds, $project, $request) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($request->user())->authorize('manageAccess', $project);
+            $oldAccess = ProjectAccess::where('project_id', $project->id)
+                ->where('user_id', '!=', $project->user_id)
+                ->get()
+                ->toArray();
 
-        DB::transaction(function () use ($validated, $activeUserIds, $project, $request, $oldAccess) {
             ProjectAccess::where('project_id', $project->id)
                 ->where('user_id', '!=', $project->user_id)
                 ->delete();

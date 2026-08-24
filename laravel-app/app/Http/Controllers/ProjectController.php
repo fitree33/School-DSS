@@ -13,6 +13,7 @@ use App\Models\ProjectStatusHistory;
 use Database\Seeders\ProjectStatusSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
@@ -159,9 +160,12 @@ class ProjectController extends Controller
         $data = $this->validateProject($request, $project);
         $kpis = $data['kpis'] ?? [];
         unset($data['kpis']);
-        $oldValues = $project->only(array_keys($data));
 
-        DB::transaction(function () use ($data, $kpis, $oldValues, $project) {
+        DB::transaction(function () use ($data, $kpis, $project, $request) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($request->user())->authorize('update', $project);
+            $oldValues = $project->only(array_keys($data));
+
             $project->update($data);
             $this->syncKpis($project, $kpis);
 
@@ -173,11 +177,14 @@ class ProjectController extends Controller
             ->with('success', 'แก้ไขโครงการเรียบร้อยแล้ว');
     }
 
-    public function destroy(Project $project)
+    public function destroy(Request $request, Project $project)
     {
         $this->authorize('delete', $project);
 
-        DB::transaction(function () use ($project) {
+        DB::transaction(function () use ($project, $request) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($request->user())->authorize('delete', $project);
+
             AuditLog::record('project.deleted', $project, $project->getAttributes());
             $project->delete();
         });

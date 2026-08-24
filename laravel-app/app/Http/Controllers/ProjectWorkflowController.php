@@ -13,6 +13,7 @@ use App\Models\ProjectStatusHistory;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 class ProjectWorkflowController extends Controller
 {
@@ -20,7 +21,7 @@ class ProjectWorkflowController extends Controller
     {
         $this->authorize('submit', $project);
 
-        $this->transition($project, 'pending_deputy', $request->user(), 'ส่งโครงการให้รองผู้อำนวยการกลั่นกรอง');
+        $this->transition($project, 'pending_deputy', $request->user(), 'ส่งโครงการให้รองผู้อำนวยการกลั่นกรอง', 'submit');
         $this->notifyRole('deputy_director', $project, 'มีโครงการรอกลั่นกรอง', "โครงการ {$project->name} ถูกส่งเข้ามาเพื่อกลั่นกรอง", 'review');
 
         return back()->with('success', 'ส่งโครงการให้รองผู้อำนวยการกลั่นกรองแล้ว');
@@ -40,7 +41,7 @@ class ProjectWorkflowController extends Controller
             ? 'รองผู้อำนวยการกลั่นกรองและส่งต่อให้ผู้อำนวยการแล้ว'
             : 'รองผู้อำนวยการส่งโครงการกลับให้แก้ไขแล้ว';
 
-        $this->transition($project, $next, $request->user(), $data['comment']);
+        $this->transition($project, $next, $request->user(), $data['comment'], 'screen');
 
         if ($data['decision'] === 'forward') {
             $this->notifyRole('director', $project, 'มีโครงการรออนุมัติ', "โครงการ {$project->name} ผ่านการกลั่นกรองและรอการอนุมัติ", 'approval');
@@ -65,7 +66,7 @@ class ProjectWorkflowController extends Controller
             ? 'อนุมัติโครงการเรียบร้อยแล้ว'
             : 'ไม่อนุมัติโครงการแล้ว';
 
-        $this->transition($project, $next, $request->user(), $data['comment']);
+        $this->transition($project, $next, $request->user(), $data['comment'], 'decide');
         $this->notifyUser($project->owner, $project, 'ผลการพิจารณาโครงการ', "โครงการ {$project->name}: {$message}", $data['decision']);
 
         return back()->with('success', $message);
@@ -87,6 +88,10 @@ class ProjectWorkflowController extends Controller
         ]);
 
         DB::transaction(function () use ($data, $project, $request) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($request->user())->authorize('complete', $project);
+            $project->load('kpis');
+
             foreach ($project->kpis as $kpi) {
                 if (array_key_exists($kpi->id, $data['kpi_actuals'] ?? [])) {
                     $kpi->update(['actual_value' => $data['kpi_actuals'][$kpi->id]]);
@@ -106,7 +111,7 @@ class ProjectWorkflowController extends Controller
             ]);
 
             $project->update(['actual_spent' => $data['actual_spent']]);
-            $this->transition($project, 'completed', $request->user(), 'บันทึกรายงานผลและปิดโครงการ');
+            $this->transition($project, 'completed', $request->user(), 'บันทึกรายงานผลและปิดโครงการ', 'complete');
             $this->completeExecutionStatus($project, $request->user());
         });
 
@@ -144,12 +149,18 @@ class ProjectWorkflowController extends Controller
         ]);
     }
 
-    private function transition(Project $project, string $nextCode, $user, string $comment): void
-    {
-        $nextStatus = ProjectStatus::where('code', $nextCode)->firstOrFail();
-        $oldStatusId = $project->project_status_id;
-
-        DB::transaction(function () use ($project, $nextStatus, $oldStatusId, $user, $comment, $nextCode) {
+    private function transition(
+        Project $project,
+        string $nextCode,
+        User $user,
+        string $comment,
+        string $ability,
+    ): void {
+        DB::transaction(function () use ($project, $nextCode, $user, $comment, $ability) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($user)->authorize($ability, $project);
+            $nextStatus = ProjectStatus::where('code', $nextCode)->firstOrFail();
+            $oldStatusId = $project->project_status_id;
             $timestamps = match ($nextCode) {
                 'pending_deputy' => ['submitted_at' => now()],
                 'pending_director' => ['screened_at' => now()],

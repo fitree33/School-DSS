@@ -4,6 +4,7 @@ namespace App\Services\Projects;
 
 use App\Models\AuditLog;
 use App\Models\EvaluationStatus;
+use App\Models\FiscalYear;
 use App\Models\Project;
 use App\Models\ProjectAccess;
 use App\Models\ProjectExecutionStatus;
@@ -15,6 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
 class ProjectService
@@ -32,6 +34,8 @@ class ProjectService
             $notStartedStatusId,
             $pendingEvaluationId,
         ) {
+            $this->ensureFiscalYearsWritable([$attributes['fiscal_year_id'] ?? null]);
+
             $project = Project::create(array_merge($attributes, [
                 'user_id' => $actor->id,
                 'responsible_person' => $attributes['responsible_person'] ?? $actor->name,
@@ -96,6 +100,22 @@ class ProjectService
             $executionComment,
             $evaluationStatusCode,
         ) {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($actor)->authorize('update', $project);
+
+            if ($evaluationStatusCode !== null) {
+                Gate::forUser($actor)->authorize('evaluate', $project);
+            }
+
+            $targetFiscalYearId = array_key_exists('fiscal_year_id', $attributes)
+                ? (int) $attributes['fiscal_year_id']
+                : null;
+            $this->ensureFiscalYearsWritable([
+                $project->fiscal_year_id,
+                $targetFiscalYearId,
+            ]);
+            $this->ensureExecutionTransitionIsAllowed($project, $executionStatusCode);
+
             $oldValues = $project->only(array_keys($attributes));
             $fromExecutionStatusId = $project->project_execution_status_id;
 
@@ -139,9 +159,13 @@ class ProjectService
         });
     }
 
-    public function delete(Project $project): void
+    public function delete(User $actor, Project $project): void
     {
-        DB::transaction(function () use ($project): void {
+        DB::transaction(function () use ($actor, $project): void {
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            Gate::forUser($actor)->authorize('delete', $project);
+            $this->ensureFiscalYearsWritable([$project->fiscal_year_id]);
+
             AuditLog::record('project.deleted', $project, $project->getAttributes());
             $project->delete();
         });
@@ -159,5 +183,56 @@ class ProjectService
         }
 
         return (int) $id;
+    }
+
+    /**
+     * @param  array<int, int|string|null>  $fiscalYearIds
+     */
+    private function ensureFiscalYearsWritable(array $fiscalYearIds): void
+    {
+        $ids = collect($fiscalYearIds)
+            ->filter(fn ($id): bool => $id !== null && $id !== '')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->sort()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return;
+        }
+
+        $hasLockedYear = FiscalYear::query()
+            ->whereKey($ids->all())
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get()
+            ->contains(fn (FiscalYear $year): bool => $year->is_locked);
+
+        if ($hasLockedYear) {
+            throw ValidationException::withMessages([
+                'fiscal_year_id' => ['The selected fiscal year is locked and read-only.'],
+            ]);
+        }
+    }
+
+    private function ensureExecutionTransitionIsAllowed(Project $project, ?string $requested): void
+    {
+        if ($requested === null) {
+            return;
+        }
+
+        $current = $project->executionStatus()->value('code');
+        $allowed = match ($current) {
+            'not_started' => ['not_started', 'in_progress'],
+            'in_progress' => ['in_progress', 'completed'],
+            'completed' => ['completed'],
+            default => ['not_started'],
+        };
+
+        if (! in_array($requested, $allowed, true)) {
+            throw ValidationException::withMessages([
+                'execution_status' => ['The requested execution status is not a permitted next step.'],
+            ]);
+        }
     }
 }

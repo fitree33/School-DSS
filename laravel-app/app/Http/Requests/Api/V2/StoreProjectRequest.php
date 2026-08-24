@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api\V2;
 
+use App\Models\FiscalYear;
 use App\Models\Project;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -71,6 +72,7 @@ class StoreProjectRequest extends FormRequest
         return [
             fn (Validator $validator) => $this->validateProjectCodeUniqueness($validator),
             fn (Validator $validator) => $this->validateDateRange($validator),
+            fn (Validator $validator) => $this->validateFiscalYearIsWritable($validator),
             function (Validator $validator): void {
                 $user = $this->user();
 
@@ -123,6 +125,22 @@ class StoreProjectRequest extends FormRequest
             ->whereRaw('UPPER(TRIM(project_code)) = ?', [$projectCode])
             ->exists()) {
             $validator->errors()->add('project_code', 'The project code has already been taken.');
+        }
+    }
+
+    private function validateFiscalYearIsWritable(Validator $validator): void
+    {
+        if ($validator->errors()->has('fiscal_year_id')) {
+            return;
+        }
+
+        $fiscalYear = FiscalYear::query()->find($this->integer('fiscal_year_id'));
+
+        if ($fiscalYear?->is_locked) {
+            $validator->errors()->add(
+                'fiscal_year_id',
+                'The selected fiscal year is locked and read-only.'
+            );
         }
     }
 }

@@ -11,6 +11,7 @@ use App\Models\Project;
 use App\Services\Projects\ProjectService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -99,10 +100,10 @@ class ProjectController extends Controller
         );
     }
 
-    public function destroy(Project $project): Response
+    public function destroy(Request $request, Project $project): Response
     {
         $this->authorize('delete', $project);
-        $this->projects->delete($project);
+        $this->projects->delete($request->user(), $project);
 
         return response()->noContent();
     }
@@ -117,7 +118,7 @@ class ProjectController extends Controller
             'department:id,name',
             'category:id,name',
             'academicYear:id,year',
-            'fiscalYear:id,year',
+            'fiscalYear:id,year,is_active,is_locked',
             'schoolPlan:id,fiscal_year_id,code,name',
             'status:id,code,name,color,is_terminal',
             'executionStatus:id,code,name,color,is_terminal',
