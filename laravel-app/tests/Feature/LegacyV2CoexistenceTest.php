@@ -53,7 +53,7 @@ class LegacyV2CoexistenceTest extends TestCase
     {
         $this->seed([ProjectStatusSeeder::class, AuthorizationSeeder::class]);
         [$teacher, $department, $category, $academicYear] = $this->references();
-        $notStarted = ProjectExecutionStatus::query()->where('code', 'not_started')->firstOrFail();
+        $inProgress = ProjectExecutionStatus::query()->where('code', 'in_progress')->firstOrFail();
         $pending = EvaluationStatus::query()->where('code', 'pending')->firstOrFail();
         $project = Project::create([
             'name' => 'Legacy Completion Project',
@@ -64,7 +64,7 @@ class LegacyV2CoexistenceTest extends TestCase
             'project_category_id' => $category->id,
             'academic_year_id' => $academicYear->id,
             'project_status_id' => ProjectStatus::query()->where('code', 'approved')->value('id'),
-            'project_execution_status_id' => $notStarted->id,
+            'project_execution_status_id' => $inProgress->id,
             'evaluation_status_id' => $pending->id,
         ]);
 
@@ -83,7 +83,7 @@ class LegacyV2CoexistenceTest extends TestCase
         $this->assertSame('completed', $project->executionStatus->code);
         $this->assertDatabaseHas('project_execution_status_histories', [
             'project_id' => $project->id,
-            'from_status_id' => $notStarted->id,
+            'from_status_id' => $inProgress->id,
             'to_status_id' => $project->project_execution_status_id,
             'changed_by' => $teacher->id,
         ]);

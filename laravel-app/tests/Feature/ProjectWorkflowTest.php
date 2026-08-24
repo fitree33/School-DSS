@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Project;
+use App\Models\ProjectExecutionStatus;
 use App\Models\ProjectKpi;
 use App\Models\ProjectStatus;
 use App\Models\Role;
@@ -79,6 +80,11 @@ class ProjectWorkflowTest extends TestCase
     {
         $this->seed(AuthorizationSeeder::class);
         [$project, $teacher] = $this->fixture('approved');
+        $project->update([
+            'project_execution_status_id' => ProjectExecutionStatus::query()
+                ->where('code', 'in_progress')
+                ->value('id'),
+        ]);
         $kpi = ProjectKpi::create([
             'project_id' => $project->id,
             'name' => 'ผู้เข้าร่วมผ่านเกณฑ์',

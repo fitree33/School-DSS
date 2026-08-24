@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\FiscalYear;
 use App\Models\Project;
 use App\Models\ProjectAccess;
 use App\Models\Role;
@@ -75,6 +76,52 @@ class ProjectAuthorizationTest extends TestCase
         $this->actingAs($director)
             ->get(route('projects.show', $project))
             ->assertOk();
+    }
+
+    public function test_access_update_reauthorizes_after_reloading_the_locked_project(): void
+    {
+        $this->seed(AuthorizationSeeder::class);
+        [, $viewer, $project] = $this->projectFixture();
+        $director = User::factory()->create([
+            'role_id' => Role::where('code', 'director')->value('id'),
+        ]);
+        $fiscalYear = FiscalYear::create([
+            'year' => 2570,
+            'is_active' => true,
+        ]);
+        $project->update(['fiscal_year_id' => $fiscalYear->id]);
+        $retrievals = 0;
+
+        Project::retrieved(function (Project $retrieved) use ($project, $fiscalYear, &$retrievals): void {
+            if ((int) $retrieved->id !== (int) $project->id) {
+                return;
+            }
+
+            $retrievals++;
+
+            if ($retrievals === 2) {
+                FiscalYear::query()
+                    ->whereKey($fiscalYear->id)
+                    ->update(['is_locked' => true]);
+            }
+        });
+
+        $this->actingAs($director)
+            ->put(route('projects.access.update', $project), [
+                'access' => [
+                    $viewer->id => [
+                        'can_view' => true,
+                        'can_edit' => true,
+                    ],
+                ],
+            ])
+            ->assertForbidden();
+
+        $this->assertGreaterThanOrEqual(2, $retrievals);
+        $this->assertDatabaseMissing('project_access', [
+            'project_id' => $project->id,
+            'user_id' => $viewer->id,
+        ]);
     }
 
     private function projectFixture(string $name = 'Owner Project'): array
