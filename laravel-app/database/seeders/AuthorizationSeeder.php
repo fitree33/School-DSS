@@ -21,9 +21,10 @@ class AuthorizationSeeder extends Seeder
             ['code' => 'projects.delete_department', 'name' => 'ลบโครงการภายในฝ่าย'],
             ['code' => 'projects.manage_access', 'name' => 'จัดการสิทธิ์โครงการ'],
             ['code' => 'projects.evaluate', 'name' => 'ประเมินโครงการ'],
+            ['code' => 'budgets.manage', 'name' => 'จัดการงบประมาณ'],
             ['code' => 'users.manage', 'name' => 'จัดการผู้ใช้งาน'],
         ])->mapWithKeys(function (array $permission) {
-            $model = Permission::updateOrCreate(
+            $model = Permission::firstOrCreate(
                 ['code' => $permission['code']],
                 ['name' => $permission['name']]
             );
@@ -58,12 +59,12 @@ class AuthorizationSeeder extends Seeder
         ];
 
         foreach ($roles as $code => $definition) {
-            $role = Role::updateOrCreate(
+            $role = Role::firstOrCreate(
                 ['code' => $code],
                 ['name' => $definition['name']]
             );
 
-            $role->permissions()->sync(
+            $role->permissions()->syncWithoutDetaching(
                 $permissions->only($definition['permissions'])->pluck('id')->all()
             );
         }

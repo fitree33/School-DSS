@@ -3,6 +3,8 @@
 use App\Http\Controllers\Api\ProjectSummaryController;
 use App\Http\Controllers\Api\V2\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\V2\Auth\MeController;
+use App\Http\Controllers\Api\V2\BudgetManagementController;
+use App\Http\Controllers\Api\V2\DashboardController;
 use App\Http\Controllers\Api\V2\ProjectController as V2ProjectController;
 use App\Http\Controllers\Api\V2\ProjectOptionsController;
 use Illuminate\Http\Request;
@@ -37,6 +39,13 @@ Route::prefix('v2')
             Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])
                 ->name('auth.logout');
             Route::get('/me', MeController::class)->name('me');
+            Route::get('/dashboard', DashboardController::class)->name('dashboard');
+            Route::get('/budget-management', [BudgetManagementController::class, 'index'])
+                ->name('budget-management.index');
+            Route::put('/fiscal-years/{fiscalYear}/school-budget', [BudgetManagementController::class, 'updateSchoolBudget'])
+                ->name('fiscal-years.school-budget.update');
+            Route::put('/fiscal-years/{fiscalYear}/department-budgets/{department}', [BudgetManagementController::class, 'updateDepartmentBudget'])
+                ->name('fiscal-years.department-budgets.update');
             Route::get('/project-options', ProjectOptionsController::class)
                 ->name('project-options');
             Route::apiResource('projects', V2ProjectController::class)

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V2;
 
+use App\Services\Budgets\BudgetMetricsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,6 +27,10 @@ class ProjectResource extends JsonResource
             'key_points' => $this->key_points,
             'budget' => $this->budget,
             'actual_spent' => $this->actual_spent,
+            'budget_metrics' => app(BudgetMetricsService::class)->project(
+                $this->budget,
+                $this->actual_spent,
+            ),
             'budget_source' => $this->budget_source,
             'responsible_person' => $this->responsible_person,
             'monitor_person' => $this->monitor_person,
@@ -52,6 +57,8 @@ class ProjectResource extends JsonResource
             'fiscal_year' => $this->whenLoaded('fiscalYear', fn () => $this->fiscalYear ? [
                 'id' => $this->fiscalYear->id,
                 'year' => $this->fiscalYear->year,
+                'is_active' => $this->fiscalYear->is_active,
+                'is_locked' => $this->fiscalYear->is_locked,
             ] : null),
             'school_plan' => $this->whenLoaded('schoolPlan', fn () => $this->schoolPlan ? [
                 'id' => $this->schoolPlan->id,
