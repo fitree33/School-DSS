@@ -6,8 +6,9 @@ import { ErrorState, LoadingBlock } from '@/components/Feedback';
 import { ArrowLeftIcon, EditIcon, TrashIcon } from '@/components/Icons';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
+import { dashboardKeys } from '@/features/dashboard/api';
 import { deleteProject, fetchProject, projectKeys } from '@/features/projects/api';
-import { calculateBudgetUsage, formatCurrency, formatDate, yearLabel } from '@/features/projects/format';
+import { formatCurrency, formatDate, projectBudgetView, yearLabel } from '@/features/projects/format';
 
 export function ProjectDetailPage() {
     const { projectId = '' } = useParams();
@@ -21,7 +22,10 @@ export function ProjectDetailPage() {
     const deleteMutation = useMutation({
         mutationFn: () => deleteProject(projectId),
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: projectKeys.all });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: projectKeys.all }),
+                queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+            ]);
             navigate('/projects', { replace: true });
         },
     });
@@ -34,9 +38,7 @@ export function ProjectDetailPage() {
     }
 
     const project = projectQuery.data;
-    const spent = Number(project.actual_spent ?? 0);
-    const budget = Number(project.budget ?? 0);
-    const { remaining, usedPercentage: usedPercent } = calculateBudgetUsage(budget, spent);
+    const { budget, actualSpent: spent, remaining, usedPercentage: usedPercent } = projectBudgetView(project);
     const usedPercentLabel = usedPercent === null
         ? 'ไม่มีวงเงิน (มีการใช้จ่าย)'
         : `${usedPercent.toLocaleString('th-TH', { maximumFractionDigits: 1 })}%`;
@@ -65,7 +67,7 @@ export function ProjectDetailPage() {
             <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <MetricCard label="งบประมาณโครงการ" value={formatCurrency(budget)} />
                 <MetricCard label="ใช้ไปแล้ว" value={formatCurrency(spent)} />
-                <MetricCard label="งบคงเหลือ" tone="teal" value={formatCurrency(remaining)} />
+                <MetricCard label="งบคงเหลือ" tone={remaining < 0 ? 'rose' : 'teal'} value={formatCurrency(remaining)} />
                 <MetricCard label="สัดส่วนที่ใช้" tone={usedPercent === null ? 'rose' : 'slate'} value={usedPercentLabel} />
             </section>
 

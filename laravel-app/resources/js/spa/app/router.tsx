@@ -1,6 +1,7 @@
 import { Navigate, createBrowserRouter } from 'react-router-dom';
 
 import { LoginPage, RequireAuth, RequirePermission } from '@/auth/AuthContext';
+import { BudgetManagementPage } from '@/features/budgets/BudgetManagementPage';
 import { DashboardPage } from '@/features/dashboard/DashboardPage';
 import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage';
 import { ProjectFormPage } from '@/features/projects/ProjectFormPage';
@@ -17,6 +18,10 @@ export const router = createBrowserRouter(
             children: [
                 { index: true, element: <Navigate replace to="/dashboard" /> },
                 { path: '/dashboard', element: <DashboardPage /> },
+                {
+                    path: '/budgets',
+                    element: <RequirePermission permission="budgets.manage"><BudgetManagementPage /></RequirePermission>,
+                },
                 { path: '/projects', element: <ProjectListPage /> },
                 { path: '/projects/:projectId', element: <ProjectDetailPage /> },
                 { path: '/projects/:projectId/edit', element: <ProjectFormPage mode="edit" /> },

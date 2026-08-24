@@ -7,7 +7,9 @@ import type { Project, ProjectPayload } from '@/api/contracts';
 import { ErrorState, FieldError, LoadingBlock } from '@/components/Feedback';
 import { ArrowLeftIcon } from '@/components/Icons';
 import { PageHeader } from '@/components/PageHeader';
+import { dashboardKeys } from '@/features/dashboard/api';
 import { createProject, fetchProject, fetchProjectOptions, projectKeys, updateProject } from '@/features/projects/api';
+import { normalExecutionStatusCodes } from '@/features/projects/format';
 
 type FormMode = 'create' | 'edit';
 
@@ -61,7 +63,10 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
         mutationFn: async (payload: ProjectPayload) => mode === 'create' ? createProject(payload) : updateProject(projectId, payload),
         onSuccess: async (project) => {
             queryClient.setQueryData(projectKeys.detail(project.id), project);
-            await queryClient.invalidateQueries({ queryKey: projectKeys.all });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: projectKeys.all }),
+                queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+            ]);
             navigate(`/projects/${project.id}`, { replace: true });
         },
     });
@@ -71,8 +76,14 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
         [form.fiscal_year_id, optionsQuery.data?.school_plans],
     );
 
+    const currentExecutionStatus = projectQuery.data?.execution_status?.code ?? '';
+    const availableExecutionStatuses = useMemo(() => {
+        const allowed = new Set(normalExecutionStatusCodes(currentExecutionStatus));
+
+        return optionsQuery.data?.execution_statuses.filter((status) => allowed.has(status.code)) ?? [];
+    }, [currentExecutionStatus, optionsQuery.data?.execution_statuses]);
+
     if (mode === 'edit' && isApiError(projectQuery.error) && projectQuery.error.status === 403) return <Navigate replace to="/forbidden" />;
-    if (mode === 'edit' && projectQuery.data && !projectQuery.data.abilities.update) return <Navigate replace to="/forbidden" />;
     if (optionsQuery.isPending || (mode === 'edit' && projectQuery.isPending)) return <LoadingBlock label={mode === 'create' ? 'กำลังเตรียมแบบฟอร์มโครงการ' : 'กำลังโหลดข้อมูลโครงการ'} />;
     if (optionsQuery.isError || (mode === 'edit' && projectQuery.isError)) {
         const error = optionsQuery.error ?? projectQuery.error;
@@ -80,9 +91,11 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
     }
 
     const canEvaluate = mode === 'edit' && projectQuery.data?.abilities.evaluate === true;
+    const isReadOnly = mode === 'edit' && projectQuery.data?.abilities.update === false;
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
+        if (isReadOnly) return;
         setFieldErrors({});
         setSubmitError(null);
 
@@ -113,7 +126,15 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
 
             {submitError && <ErrorState message={submitError} title="บันทึกไม่สำเร็จ" />}
 
+            {isReadOnly && (
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-900" role="status">
+                    <p className="font-bold">เปิดดูแบบอ่านอย่างเดียว</p>
+                    <p className="mt-1 leading-6">โครงการนี้อยู่ในปีงบประมาณที่ล็อกแล้ว หรือบัญชีของคุณไม่มีสิทธิ์แก้ไข จึงไม่มีการส่งข้อมูลอัปเดต</p>
+                </div>
+            )}
+
             <form className="space-y-5" onSubmit={handleSubmit}>
+                <fieldset className="contents" disabled={isReadOnly}>
                 <FormSection description="ข้อมูลที่ใช้ค้นหาและอ้างอิงโครงการ" title="ข้อมูลพื้นฐาน">
                     <div className="grid gap-5 md:grid-cols-2">
                         <TextField errors={fieldErrors.name} label="ชื่อโครงการ" onChange={(value) => update('name', value)} required value={form.name} />
@@ -121,7 +142,7 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
                         <SelectField errors={fieldErrors.department_id} label="ฝ่าย/กลุ่มงาน" onChange={(value) => update('department_id', value)} required value={form.department_id}><option value="">เลือกฝ่าย/กลุ่มงาน</option>{options?.departments.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</SelectField>
                         <SelectField errors={fieldErrors.project_category_id} label="ประเภทโครงการ" onChange={(value) => update('project_category_id', value)} required value={form.project_category_id}><option value="">เลือกประเภทโครงการ</option>{options?.project_categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</SelectField>
                         <SelectField errors={fieldErrors.academic_year_id} label="ปีการศึกษา" onChange={(value) => update('academic_year_id', value)} required value={form.academic_year_id}><option value="">เลือกปีการศึกษา</option>{options?.academic_years.map((item) => <option key={item.id} value={item.id}>{item.year}{item.is_locked ? ' (ปิดแล้ว)' : ''}</option>)}</SelectField>
-                        <SelectField errors={fieldErrors.fiscal_year_id} label="ปีงบประมาณ" onChange={(value) => { update('fiscal_year_id', value); if (form.school_plan_id && !options?.school_plans.some((plan) => plan.id === Number(form.school_plan_id) && plan.fiscal_year_id === Number(value))) update('school_plan_id', ''); }} required value={form.fiscal_year_id}><option value="">เลือกปีงบประมาณ</option>{options?.fiscal_years.map((item) => <option key={item.id} value={item.id}>{item.year}{item.is_locked ? ' (ปิดแล้ว)' : ''}</option>)}</SelectField>
+                        <SelectField errors={fieldErrors.fiscal_year_id} label="ปีงบประมาณ" onChange={(value) => { update('fiscal_year_id', value); if (form.school_plan_id && !options?.school_plans.some((plan) => plan.id === Number(form.school_plan_id) && plan.fiscal_year_id === Number(value))) update('school_plan_id', ''); }} required value={form.fiscal_year_id}><option value="">เลือกปีงบประมาณ</option>{options?.fiscal_years.map((item) => <option disabled={item.is_locked} key={item.id} value={item.id}>{item.year}{item.is_locked ? ' (ปิดแล้ว)' : ''}</option>)}</SelectField>
                         <SelectField errors={fieldErrors.school_plan_id} label="แผนโรงเรียน" onChange={(value) => update('school_plan_id', value)} value={form.school_plan_id}><option value="">ไม่ระบุ</option>{availablePlans.map((item) => <option key={item.id} value={item.id}>{item.code ? `${item.code} · ` : ''}{item.name}</option>)}</SelectField>
                         <TextField errors={fieldErrors.responsible_person} label="ผู้รับผิดชอบ" onChange={(value) => update('responsible_person', value)} value={form.responsible_person} />
                     </div>
@@ -150,7 +171,7 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
                 {mode === 'edit' && (
                     <FormSection description="สถานะที่เลือกต้องเป็นค่าที่ระบบกำหนด และ API จะตรวจสิทธิ์อีกครั้ง" title="สถานะโครงการ">
                         <div className="grid gap-5 md:grid-cols-2">
-                            <SelectField errors={fieldErrors.execution_status} label="สถานะการดำเนินงาน" onChange={(value) => update('execution_status', value)} required value={form.execution_status}><option value="">เลือกสถานะ</option>{options?.execution_statuses.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</SelectField>
+                            <SelectField errors={fieldErrors.execution_status} label="สถานะการดำเนินงาน" onChange={(value) => update('execution_status', value)} required value={form.execution_status}><option value="">เลือกสถานะ</option>{availableExecutionStatuses.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</SelectField>
                             {canEvaluate ? <SelectField errors={fieldErrors.evaluation_status} label="ผลประเมิน" onChange={(value) => update('evaluation_status', value)} required value={form.evaluation_status}><option value="">เลือกผลประเมิน</option>{options?.evaluation_statuses.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</SelectField> : <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"><p className="text-sm font-semibold text-slate-700">ผลประเมิน</p><p className="mt-1 text-xs leading-5 text-slate-500">บัญชีนี้ไม่มีสิทธิ์เปลี่ยนผลประเมินของโครงการ</p></div>}
                         </div>
                     </FormSection>
@@ -159,10 +180,11 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
                 <FormSection description="ข้อมูลสำหรับการติดตามและประเมินผลโครงการ" title="การประเมิน">
                     <div className="grid gap-5 lg:grid-cols-2"><TextareaField errors={fieldErrors.evaluation_method} label="วิธีประเมิน" onChange={(value) => update('evaluation_method', value)} rows={4} value={form.evaluation_method} /><TextareaField errors={fieldErrors.evaluation_tools} label="เครื่องมือประเมิน" onChange={(value) => update('evaluation_tools', value)} rows={4} value={form.evaluation_tools} /></div>
                 </FormSection>
+                </fieldset>
 
                 <div className="sticky bottom-4 z-20 flex flex-col-reverse gap-3 rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-xl shadow-slate-900/10 backdrop-blur sm:flex-row sm:justify-end">
-                    <Link className="spa-button-secondary" to={mode === 'edit' && projectId ? `/projects/${projectId}` : '/projects'}>ยกเลิก</Link>
-                    <button className="spa-button-primary" disabled={mutation.isPending} type="submit">{mutation.isPending ? 'กำลังบันทึก…' : mode === 'create' ? 'สร้างโครงการ' : 'บันทึกการแก้ไข'}</button>
+                    <Link className="spa-button-secondary" to={mode === 'edit' && projectId ? `/projects/${projectId}` : '/projects'}>{isReadOnly ? 'กลับหน้ารายละเอียด' : 'ยกเลิก'}</Link>
+                    {!isReadOnly && <button className="spa-button-primary" disabled={mutation.isPending} type="submit">{mutation.isPending ? 'กำลังบันทึก…' : mode === 'create' ? 'สร้างโครงการ' : 'บันทึกการแก้ไข'}</button>}
                 </div>
             </form>
         </div>

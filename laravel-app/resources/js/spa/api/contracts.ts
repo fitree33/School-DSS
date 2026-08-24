@@ -73,6 +73,13 @@ export interface ProjectAbilities {
     evaluate: boolean;
 }
 
+export interface ProjectBudgetMetrics {
+    budget: string;
+    actual_spent: string;
+    remaining: string;
+    used_percentage: number | null;
+}
+
 export interface Project {
     id: number;
     name: string;
@@ -106,6 +113,7 @@ export interface Project {
     approval_status: StatusOption | null;
     execution_status: StatusOption | null;
     evaluation_status: StatusOption | null;
+    budget_metrics?: ProjectBudgetMetrics;
     abilities: ProjectAbilities;
     created_at?: string;
     updated_at?: string;
@@ -170,25 +178,92 @@ export interface ProjectPayload {
     evaluation_status?: string;
 }
 
-/**
- * Reserved response shape for the Dashboard API planned after Phase 2.
- * Amounts remain decimal strings so the browser does not become the source
- * of truth for budget arithmetic.
- */
-export interface DashboardBudgetMetric {
-    budget_amount: string;
-    actual_spent: string;
-    remaining_amount: string;
+export interface DashboardSchoolBudget {
+    total_budget: string;
+    allocated_to_departments: string;
+    unallocated: string;
+    total_actual_spent: string;
+    remaining: string;
     used_percentage: number | null;
+    remaining_percentage: number | null;
+    overallocated: boolean;
+    overspent: boolean;
 }
 
-export interface DashboardDepartmentBudget extends DashboardBudgetMetric {
+export interface DashboardDepartmentBudget {
     department: Department;
     is_allocated: boolean;
+    allocated_budget: string;
+    planned_project_budget: string;
+    actual_spent: string;
+    remaining: string;
+    used_percentage: number | null;
+    remaining_percentage: number | null;
+    overcommitted: boolean;
+    overspent: boolean;
+}
+
+export interface DashboardExecutionStatusCounts {
+    not_started: number;
+    in_progress: number;
+    completed: number;
+}
+
+export interface DashboardEvaluationStatusCounts {
+    pending: number;
+    passed: number;
+    failed: number;
 }
 
 export interface DashboardSummary {
     fiscal_year: YearOption | null;
-    school_budget: DashboardBudgetMetric | null;
-    department_budgets: DashboardDepartmentBudget[];
+    fiscal_years: YearOption[];
+    school_budget: DashboardSchoolBudget;
+    departments: DashboardDepartmentBudget[];
+    project_execution_status_counts: DashboardExecutionStatusCounts;
+    evaluation_status_counts: DashboardEvaluationStatusCounts;
+    total_projects: number;
+    can: {
+        manage_budgets: boolean;
+    };
+}
+
+export interface SchoolBudgetRecord {
+    id: number;
+    fiscal_year_id: number;
+    total_amount: string;
+    notes: string | null;
+    updated_at: string | null;
+}
+
+export interface DepartmentBudgetRecord {
+    id: number | null;
+    department: Department;
+    allocated_amount: string;
+    is_allocated: boolean;
+    allocated_at: string | null;
+    allocated_by: number | null;
+    notes: string | null;
+    updated_at: string | null;
+}
+
+export interface BudgetManagementData {
+    fiscal_year: YearOption | null;
+    fiscal_years: YearOption[];
+    school_budget: SchoolBudgetRecord | null;
+    department_budgets: DepartmentBudgetRecord[];
+    can: {
+        manage_budgets: boolean;
+    };
+}
+
+export interface SchoolBudgetPayload {
+    total_amount: string;
+    notes: string | null;
+}
+
+export interface DepartmentBudgetPayload {
+    allocated_amount: string;
+    is_allocated: boolean;
+    notes: string | null;
 }

@@ -3,17 +3,18 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { isApiError } from '@/api/client';
 import { useAuth } from '@/auth/AuthContext';
-import { CloseIcon, DashboardIcon, LogoutIcon, MenuIcon, ProjectsIcon } from '@/components/Icons';
+import { BudgetIcon, CloseIcon, DashboardIcon, LogoutIcon, MenuIcon, ProjectsIcon } from '@/components/Icons';
 
 const navigation = [
     { label: 'แดชบอร์ด', to: '/dashboard', icon: DashboardIcon },
     { label: 'โครงการทั้งหมด', to: '/projects', icon: ProjectsIcon },
+    { label: 'จัดการงบประมาณ', to: '/budgets', icon: BudgetIcon, permission: 'budgets.manage' },
 ];
 
 export function AppLayout() {
     const [sidebarOpen, setSidebarOpen] = useState(false);
     const [logoutError, setLogoutError] = useState<string | null>(null);
-    const { user, logout, isLoggingOut } = useAuth();
+    const { user, logout, isLoggingOut, hasPermission } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
 
@@ -52,7 +53,7 @@ export function AppLayout() {
 
                 <nav aria-label="เมนูหลัก" className="flex-1 space-y-1 px-4 py-6">
                     <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">พื้นที่ทำงาน</p>
-                    {navigation.map(({ label, to, icon: Icon }) => (
+                    {navigation.filter(({ permission }) => !permission || hasPermission(permission)).map(({ label, to, icon: Icon }) => (
                         <NavLink
                             className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? 'bg-teal-600 text-white shadow-lg shadow-teal-950/30' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
                             end={to === '/dashboard'}
@@ -111,6 +112,7 @@ const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((par
 
 const pageTitle = (pathname: string) => {
     if (pathname === '/dashboard') return 'แดชบอร์ด';
+    if (pathname.startsWith('/budgets')) return 'จัดการงบประมาณ';
     if (pathname.includes('/new')) return 'สร้างโครงการ';
     if (pathname.includes('/edit')) return 'แก้ไขโครงการ';
     if (pathname.startsWith('/projects/')) return 'รายละเอียดโครงการ';

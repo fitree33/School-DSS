@@ -26,3 +26,49 @@ export const calculateBudgetUsage = (budget: number, actualSpent: number): Budge
     remaining: budget - actualSpent,
     usedPercentage: budget > 0 ? (actualSpent / budget) * 100 : actualSpent === 0 ? 0 : null,
 });
+
+export interface ProjectBudgetView extends BudgetUsage {
+    budget: number;
+    actualSpent: number;
+}
+
+export const projectBudgetView = (project: {
+    budget: number | string;
+    actual_spent: number | string;
+    budget_metrics?: {
+        budget: string;
+        actual_spent: string;
+        remaining: string;
+        used_percentage: number | null;
+    };
+}): ProjectBudgetView => {
+    if (project.budget_metrics) {
+        return {
+            budget: finiteNumber(project.budget_metrics.budget),
+            actualSpent: finiteNumber(project.budget_metrics.actual_spent),
+            remaining: finiteNumber(project.budget_metrics.remaining),
+            usedPercentage: project.budget_metrics.used_percentage,
+        };
+    }
+
+    const budget = finiteNumber(project.budget);
+    const actualSpent = finiteNumber(project.actual_spent);
+    return { budget, actualSpent, ...calculateBudgetUsage(budget, actualSpent) };
+};
+
+const finiteNumber = (value: number | string): number => {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : 0;
+};
+
+export const normalExecutionStatusCodes = (currentCode: string | null | undefined): string[] => {
+    const current = currentCode ?? '';
+    const nextStatus: Record<string, string | undefined> = {
+        '': 'not_started',
+        not_started: 'in_progress',
+        in_progress: 'completed',
+        completed: undefined,
+    };
+
+    return [current, nextStatus[current]].filter((code): code is string => Boolean(code));
+};

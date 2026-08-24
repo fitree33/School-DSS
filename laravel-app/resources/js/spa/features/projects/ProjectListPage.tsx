@@ -3,15 +3,16 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
 
 import { isApiError } from '@/api/client';
-import type { ProjectFilters } from '@/api/contracts';
+import type { Project, ProjectFilters } from '@/api/contracts';
 import { useAuth } from '@/auth/AuthContext';
 import { EmptyState, ErrorState, LoadingBlock } from '@/components/Feedback';
 import { EditIcon, PlusIcon, SearchIcon, TrashIcon } from '@/components/Icons';
 import { PageHeader } from '@/components/PageHeader';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { dashboardKeys } from '@/features/dashboard/api';
 import { deleteProject, fetchProjectOptions, fetchProjects, projectKeys } from '@/features/projects/api';
-import { formatCurrency, yearLabel } from '@/features/projects/format';
+import { formatCurrency, projectBudgetView, yearLabel } from '@/features/projects/format';
 
 interface FilterDraft {
     q: string;
@@ -42,7 +43,10 @@ export function ProjectListPage() {
     const deleteMutation = useMutation({
         mutationFn: deleteProject,
         onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: projectKeys.all });
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: projectKeys.all }),
+                queryClient.invalidateQueries({ queryKey: dashboardKeys.all }),
+            ]);
         },
     });
 
@@ -153,7 +157,7 @@ export function ProjectListPage() {
                                             <p className="mt-1 text-xs text-slate-500">{project.project_code || 'ไม่มีรหัส'} · ปีงบ {yearLabel(project.fiscal_year?.year)}</p>
                                         </td>
                                         <td className="px-4 py-4 text-sm text-slate-600">{project.department?.name ?? '—'}</td>
-                                        <td className="px-4 py-4 text-sm font-semibold text-slate-800">{formatCurrency(project.budget)}</td>
+                                        <td className="px-4 py-4"><ProjectBudgetSummary project={project} /></td>
                                         <td className="px-4 py-4"><StatusBadge code={project.execution_status?.code} label={project.execution_status?.name} /></td>
                                         <td className="px-4 py-4"><StatusBadge code={project.evaluation_status?.code} label={project.evaluation_status?.name} /></td>
                                         <td className="px-6 py-4">
@@ -173,7 +177,7 @@ export function ProjectListPage() {
                             <article className="p-4 sm:p-5" key={project.id}>
                                 <div className="flex items-start justify-between gap-3">
                                     <div><p className="text-xs font-medium text-teal-700">{project.project_code || 'ไม่มีรหัส'}</p><Link className="mt-1 block font-bold text-slate-900" to={`/projects/${project.id}`}>{project.name}</Link></div>
-                                    <p className="whitespace-nowrap text-sm font-bold text-slate-800">{formatCurrency(project.budget)}</p>
+                                    <ProjectBudgetSummary align="right" project={project} />
                                 </div>
                                 <p className="mt-2 text-sm text-slate-500">{project.department?.name ?? 'ไม่ระบุฝ่าย'} · ปีงบ {yearLabel(project.fiscal_year?.year)}</p>
                                 <div className="mt-4 flex flex-wrap gap-2"><StatusBadge code={project.execution_status?.code} label={project.execution_status?.name} /><StatusBadge code={project.evaluation_status?.code} label={project.evaluation_status?.name} /></div>
@@ -195,6 +199,24 @@ export function ProjectListPage() {
 
 function FilterSelect({ label, value, onChange, children }: { label: string; value: string; onChange: (value: string) => void; children: React.ReactNode }) {
     return <label><span className="spa-label">{label}</span><select className="spa-input" onChange={(event) => onChange(event.target.value)} value={value}><option value="">ทั้งหมด</option>{children}</select></label>;
+}
+
+function ProjectBudgetSummary({ project, align = 'left' }: { project: Project; align?: 'left' | 'right' }) {
+    const metrics = projectBudgetView(project);
+    const usedLabel = metrics.usedPercentage === null
+        ? 'ไม่มีฐานงบประมาณ'
+        : `${metrics.usedPercentage.toLocaleString('th-TH', { maximumFractionDigits: 1 })}%`;
+    const isOverspent = metrics.remaining < 0;
+
+    return (
+        <div className={align === 'right' ? 'text-right' : ''}>
+            <p className="whitespace-nowrap text-sm font-bold text-slate-800">{formatCurrency(metrics.budget)}</p>
+            <p className={`mt-1 text-[11px] font-semibold ${isOverspent ? 'text-rose-700' : 'text-slate-500'}`}>
+                ใช้จริง {formatCurrency(metrics.actualSpent)} · {usedLabel}
+            </p>
+            <p className={`mt-0.5 text-[11px] font-semibold ${isOverspent ? 'text-rose-700' : 'text-slate-500'}`}>คงเหลือ {formatCurrency(metrics.remaining)}</p>
+        </div>
+    );
 }
 
 const emptyDraft: FilterDraft = { q: '', fiscal_year_id: '', department_id: '', execution_status: '', evaluation_status: '' };
