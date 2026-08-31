@@ -2,7 +2,11 @@
 
 namespace App\Providers;
 
+use App\Models\EvaluationFramework;
 use App\Models\Project;
+use App\Models\ProjectEvaluation;
+use App\Policies\EvaluationFrameworkPolicy;
+use App\Policies\ProjectEvaluationPolicy;
 use App\Policies\ProjectPolicy;
 use Illuminate\Foundation\Support\Providers\AuthServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Gate;
@@ -15,7 +19,9 @@ class AuthServiceProvider extends ServiceProvider
      * @var array<class-string, class-string>
      */
     protected $policies = [
+        EvaluationFramework::class => EvaluationFrameworkPolicy::class,
         Project::class => ProjectPolicy::class,
+        ProjectEvaluation::class => ProjectEvaluationPolicy::class,
     ];
 
     /**

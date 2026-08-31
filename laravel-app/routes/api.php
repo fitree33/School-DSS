@@ -5,7 +5,11 @@ use App\Http\Controllers\Api\V2\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\V2\Auth\MeController;
 use App\Http\Controllers\Api\V2\BudgetManagementController;
 use App\Http\Controllers\Api\V2\DashboardController;
+use App\Http\Controllers\Api\V2\EvaluationFrameworkController;
+use App\Http\Controllers\Api\V2\EvaluationOptionsController;
+use App\Http\Controllers\Api\V2\EvaluationProjectController;
 use App\Http\Controllers\Api\V2\ProjectController as V2ProjectController;
+use App\Http\Controllers\Api\V2\ProjectEvaluationController;
 use App\Http\Controllers\Api\V2\ProjectOptionsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -48,6 +52,34 @@ Route::prefix('v2')
                 ->name('fiscal-years.department-budgets.update');
             Route::get('/project-options', ProjectOptionsController::class)
                 ->name('project-options');
+            Route::get('/evaluation-options', EvaluationOptionsController::class)
+                ->name('evaluation-options');
+            Route::get('/evaluation-projects', [EvaluationProjectController::class, 'index'])
+                ->name('evaluation-projects.index');
+            Route::get('/projects/{project}/evaluations', [ProjectEvaluationController::class, 'index'])
+                ->name('projects.evaluations.index');
+            Route::post('/projects/{project}/evaluations', [ProjectEvaluationController::class, 'store'])
+                ->name('projects.evaluations.store');
+            Route::get('/project-evaluations/{evaluation}', [ProjectEvaluationController::class, 'show'])
+                ->name('project-evaluations.show');
+            Route::put('/project-evaluations/{evaluation}', [ProjectEvaluationController::class, 'update'])
+                ->name('project-evaluations.update');
+            Route::post('/project-evaluations/{evaluation}/finalize', [ProjectEvaluationController::class, 'finalize'])
+                ->name('project-evaluations.finalize');
+            Route::get('/evaluation-frameworks', [EvaluationFrameworkController::class, 'index'])
+                ->name('evaluation-frameworks.index');
+            Route::post('/evaluation-frameworks', [EvaluationFrameworkController::class, 'store'])
+                ->name('evaluation-frameworks.store');
+            Route::get('/evaluation-frameworks/{framework}', [EvaluationFrameworkController::class, 'show'])
+                ->name('evaluation-frameworks.show');
+            Route::put('/evaluation-frameworks/{framework}', [EvaluationFrameworkController::class, 'update'])
+                ->name('evaluation-frameworks.update');
+            Route::post('/evaluation-frameworks/{framework}/versions', [EvaluationFrameworkController::class, 'storeVersion'])
+                ->name('evaluation-frameworks.versions.store');
+            Route::post('/evaluation-frameworks/{framework}/activate', [EvaluationFrameworkController::class, 'activate'])
+                ->name('evaluation-frameworks.activate');
+            Route::post('/evaluation-frameworks/{framework}/deactivate', [EvaluationFrameworkController::class, 'deactivate'])
+                ->name('evaluation-frameworks.deactivate');
             Route::apiResource('projects', V2ProjectController::class)
                 ->only(['index', 'store', 'show', 'update', 'destroy']);
         });

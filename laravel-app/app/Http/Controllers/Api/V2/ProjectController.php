@@ -123,6 +123,14 @@ class ProjectController extends Controller
             'status:id,code,name,color,is_terminal',
             'executionStatus:id,code,name,color,is_terminal',
             'evaluationStatus:id,code,name,color,is_terminal',
+            'latestEvaluationResult.status:id,code,name,color,is_terminal',
+            'latestEvaluationResult.finalizer:id,name',
+            'latestEvaluationResult.evaluation.evaluator:id,name',
+            'latestEvaluationResult.evaluation.finalizer:id,name',
+            'latestEvaluationResult.evaluation.framework' => fn ($query) => $query->withExists('evaluations'),
+            'latestEvaluationResult.evaluation.framework.fiscalYear:id,year,is_locked',
+            'latestEvaluationResult.evaluation.framework.criteria',
+            'latestEvaluationResult.evaluation.scores.criterion',
             'accessEntries' => fn ($query) => $query->where('user_id', $userId),
         ];
     }

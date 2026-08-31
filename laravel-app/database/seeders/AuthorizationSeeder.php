@@ -21,6 +21,11 @@ class AuthorizationSeeder extends Seeder
             ['code' => 'projects.delete_department', 'name' => 'ลบโครงการภายในฝ่าย'],
             ['code' => 'projects.manage_access', 'name' => 'จัดการสิทธิ์โครงการ'],
             ['code' => 'projects.evaluate', 'name' => 'ประเมินโครงการ'],
+            ['code' => 'evaluations.view', 'name' => 'ดูผลการประเมินโครงการ'],
+            ['code' => 'evaluations.create', 'name' => 'สร้างการประเมินโครงการ'],
+            ['code' => 'evaluations.update', 'name' => 'แก้ไขการประเมินโครงการ'],
+            ['code' => 'evaluations.finalize', 'name' => 'สรุปผลการประเมินโครงการ'],
+            ['code' => 'evaluations.manage_frameworks', 'name' => 'จัดการชุดเกณฑ์ประเมิน'],
             ['code' => 'budgets.manage', 'name' => 'จัดการงบประมาณ'],
             ['code' => 'users.manage', 'name' => 'จัดการผู้ใช้งาน'],
         ])->mapWithKeys(function (array $permission) {
@@ -42,6 +47,7 @@ class AuthorizationSeeder extends Seeder
                 'permissions' => [
                     'projects.view_all', 'projects.create', 'projects.edit_all',
                     'projects.manage_access', 'projects.evaluate',
+                    'evaluations.view', 'evaluations.create', 'evaluations.update',
                 ],
             ],
             'department_head' => [
@@ -50,6 +56,7 @@ class AuthorizationSeeder extends Seeder
                     'projects.view_department', 'projects.create',
                     'projects.edit_department', 'projects.delete_department',
                     'projects.evaluate',
+                    'evaluations.view', 'evaluations.create', 'evaluations.update',
                 ],
             ],
             'teacher' => [

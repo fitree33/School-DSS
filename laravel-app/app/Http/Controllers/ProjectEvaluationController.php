@@ -19,6 +19,7 @@ class ProjectEvaluationController extends Controller
         $this->authorize('evaluate', $project);
 
         $criteria = EvaluationCriterion::query()
+            ->whereNull('evaluation_framework_id')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
@@ -28,6 +29,7 @@ class ProjectEvaluationController extends Controller
             ->with('scores')
             ->where('project_id', $project->id)
             ->where('evaluator_id', $request->user()->id)
+            ->whereNull('evaluation_framework_id')
             ->where('round', $round)
             ->first();
 
@@ -41,6 +43,7 @@ class ProjectEvaluationController extends Controller
         $this->authorize('evaluate', $project);
 
         $criteria = EvaluationCriterion::query()
+            ->whereNull('evaluation_framework_id')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
@@ -52,7 +55,6 @@ class ProjectEvaluationController extends Controller
         }
 
         $rules = [
-            'round' => ['required', 'integer', 'min:1', 'max:100'],
             'comment' => ['nullable', 'string', 'max:3000'],
             'scores' => ['required', 'array'],
         ];
@@ -70,27 +72,28 @@ class ProjectEvaluationController extends Controller
         $totalScore = $service->score($criteria, $validated['scores']);
 
         [$evaluation, $result] = DB::transaction(function () use ($validated, $criteria, $project, $request, $service, $totalScore) {
-            $evaluation = ProjectEvaluation::updateOrCreate(
-                [
-                    'project_id' => $project->id,
-                    'evaluator_id' => $request->user()->id,
-                    'round' => $validated['round'],
-                ],
-                [
-                    'total_score' => $totalScore,
-                    'comment' => $validated['comment'] ?? null,
-                    'evaluated_at' => now(),
-                ]
-            );
+            $project = Project::query()->lockForUpdate()->findOrFail($project->id);
+            $this->authorize('evaluate', $project);
+            $round = (int) ProjectEvaluation::query()
+                ->where('project_id', $project->id)
+                ->where('evaluator_id', $request->user()->id)
+                ->max('round') + 1;
+            $evaluation = ProjectEvaluation::create([
+                'project_id' => $project->id,
+                'evaluator_id' => $request->user()->id,
+                'evaluation_framework_id' => null,
+                'round' => max(1, $round),
+                'total_score' => $totalScore,
+                'comment' => $validated['comment'] ?? null,
+                'evaluated_at' => now(),
+            ]);
 
             foreach ($criteria as $criterion) {
-                EvaluationScore::updateOrCreate(
-                    [
-                        'evaluation_id' => $evaluation->id,
-                        'criteria_id' => $criterion->id,
-                    ],
-                    ['score' => $validated['scores'][$criterion->id]]
-                );
+                EvaluationScore::create([
+                    'evaluation_id' => $evaluation->id,
+                    'criteria_id' => $criterion->id,
+                    'score' => $validated['scores'][$criterion->id],
+                ]);
             }
 
             $result = $service->refreshProjectResult($project, $request->user());

@@ -15,11 +15,9 @@ class UpdateProjectRequest extends FormRequest
         $project = $this->route('project');
         $user = $this->user();
 
-        if (! $user || ! $project instanceof Project || ! $user->can('update', $project)) {
-            return false;
-        }
-
-        return ! $this->exists('evaluation_status') || $user->can('evaluate', $project);
+        return $user !== null
+            && $project instanceof Project
+            && $user->can('update', $project);
     }
 
     /**
@@ -84,12 +82,7 @@ class UpdateProjectRequest extends FormRequest
                 'string',
                 'max:2000',
             ],
-            'evaluation_status' => [
-                'sometimes',
-                'required',
-                'string',
-                Rule::in(['pending', 'passed', 'failed']),
-            ],
+            'evaluation_status' => ['prohibited'],
             'user_id' => ['prohibited'],
             'project_status_id' => ['prohibited'],
             'project_execution_status_id' => ['prohibited'],

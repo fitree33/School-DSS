@@ -292,15 +292,16 @@ class ProjectApiTest extends TestCase
         ]);
     }
 
-    public function test_evaluation_status_requires_evaluate_permission_and_protected_fields_are_rejected(): void
+    public function test_evaluation_status_and_other_protected_fields_are_rejected(): void
     {
         $teacher = $this->user('teacher', $this->department);
         $project = $this->project($teacher);
 
         $this->actingAs($teacher)
             ->putJson("/api/v2/projects/{$project->id}", ['evaluation_status' => 'passed'])
-            ->assertForbidden()
-            ->assertJsonPath('code', 'forbidden');
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'validation_failed')
+            ->assertJsonStructure(['errors' => ['evaluation_status']]);
 
         $this->actingAs($teacher)
             ->putJson("/api/v2/projects/{$project->id}", [
@@ -315,11 +316,12 @@ class ProjectApiTest extends TestCase
 
         $this->actingAs($director)
             ->putJson("/api/v2/projects/{$project->id}", ['evaluation_status' => 'passed'])
-            ->assertOk()
-            ->assertJsonPath('data.evaluation_status.code', 'passed');
+            ->assertUnprocessable()
+            ->assertJsonPath('code', 'validation_failed')
+            ->assertJsonStructure(['errors' => ['evaluation_status']]);
 
         $this->assertSame(
-            $this->evaluationStatus('passed')->id,
+            $this->evaluationStatus('pending')->id,
             $project->fresh()->evaluation_status_id
         );
     }

@@ -19,7 +19,10 @@ class EvaluationCriteriaSeeder extends Seeder
 
         foreach ($criteria as $criterion) {
             EvaluationCriterion::updateOrCreate(
-                ['name' => $criterion['name']],
+                [
+                    'evaluation_framework_id' => null,
+                    'name' => $criterion['name'],
+                ],
                 $criterion + ['max_score' => 5, 'is_active' => true]
             );
         }

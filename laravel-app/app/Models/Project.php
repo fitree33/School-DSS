@@ -137,6 +137,17 @@ class Project extends Model
         return $this->hasMany(ProjectEvaluation::class);
     }
 
+    public function evaluationResults()
+    {
+        return $this->hasMany(ProjectEvaluationResult::class);
+    }
+
+    public function latestEvaluationResult()
+    {
+        return $this->hasOne(ProjectEvaluationResult::class)
+            ->latestOfMany('id');
+    }
+
     public function dssResults()
     {
         return $this->hasMany(DssResult::class);

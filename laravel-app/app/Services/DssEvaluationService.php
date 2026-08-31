@@ -35,6 +35,7 @@ class DssEvaluationService
     {
         $latestByEvaluator = ProjectEvaluation::query()
             ->where('project_id', $project->id)
+            ->whereNull('evaluation_framework_id')
             ->whereNotNull('evaluated_at')
             ->orderByDesc('round')
             ->orderByDesc('evaluated_at')

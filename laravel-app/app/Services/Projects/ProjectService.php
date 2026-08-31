@@ -78,13 +78,15 @@ class ProjectService
 
     public function update(User $actor, Project $project, array $attributes): Project
     {
+        if (array_key_exists('evaluation_status', $attributes)
+            || array_key_exists('evaluation_status_id', $attributes)) {
+            throw ValidationException::withMessages([
+                'evaluation_status' => ['Evaluation status can only change through the evaluation finalize workflow.'],
+            ]);
+        }
+
         $executionStatusCode = Arr::pull($attributes, 'execution_status');
         $executionComment = Arr::pull($attributes, 'execution_status_comment');
-        $evaluationStatusCode = Arr::pull($attributes, 'evaluation_status');
-
-        if ($evaluationStatusCode !== null) {
-            Gate::forUser($actor)->authorize('evaluate', $project);
-        }
 
         if (array_key_exists('fiscal_year_id', $attributes)
             && ! array_key_exists('school_plan_id', $attributes)
@@ -98,14 +100,9 @@ class ProjectService
             $attributes,
             $executionStatusCode,
             $executionComment,
-            $evaluationStatusCode,
         ) {
             $project = Project::query()->lockForUpdate()->findOrFail($project->id);
             Gate::forUser($actor)->authorize('update', $project);
-
-            if ($evaluationStatusCode !== null) {
-                Gate::forUser($actor)->authorize('evaluate', $project);
-            }
 
             $targetFiscalYearId = array_key_exists('fiscal_year_id', $attributes)
                 ? (int) $attributes['fiscal_year_id']
@@ -125,14 +122,6 @@ class ProjectService
                     $executionStatusCode,
                 );
                 $oldValues['project_execution_status_id'] = $fromExecutionStatusId;
-            }
-
-            if ($evaluationStatusCode !== null) {
-                $attributes['evaluation_status_id'] = $this->statusId(
-                    EvaluationStatus::class,
-                    $evaluationStatusCode,
-                );
-                $oldValues['evaluation_status_id'] = $project->evaluation_status_id;
             }
 
             $project->update($attributes);

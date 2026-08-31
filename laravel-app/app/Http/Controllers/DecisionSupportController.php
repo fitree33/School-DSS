@@ -17,6 +17,7 @@ class DecisionSupportController extends Controller
         Gate::authorize('viewDss');
 
         $criteria = EvaluationCriterion::query()
+            ->whereNull('evaluation_framework_id')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->get();
@@ -42,7 +43,9 @@ class DecisionSupportController extends Controller
                 'status',
                 'department',
                 'owner',
-                'evaluations.scores',
+                'evaluations' => fn ($query) => $query
+                    ->whereNull('evaluation_framework_id')
+                    ->with('scores'),
             ])
             ->get();
 

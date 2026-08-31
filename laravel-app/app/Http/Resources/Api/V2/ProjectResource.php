@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V2;
 
+use App\Models\ProjectEvaluation;
 use App\Services\Budgets\BudgetMetricsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -14,6 +15,22 @@ class ProjectResource extends JsonResource
     public function toArray(Request $request): array
     {
         $user = $request->user();
+        $latestResult = $this->resource->relationLoaded('latestEvaluationResult')
+            ? $this->latestEvaluationResult
+            : null;
+        $latestEvaluation = $latestResult?->relationLoaded('evaluation')
+            ? $latestResult->evaluation
+            : null;
+        $canViewEvaluations = $user?->can('viewAny', ProjectEvaluation::class) === true
+            && ($user?->can('view', $this->resource) ?? false);
+        $canViewLatestEvaluation = false;
+
+        if ($canViewEvaluations && $latestEvaluation !== null) {
+            $latestEvaluation->setRelation('project', $this->resource);
+            $canViewLatestEvaluation = $user?->can('view', $latestEvaluation) ?? false;
+            $latestEvaluation->unsetRelation('project');
+            $latestEvaluation->setRelation('result', $latestResult);
+        }
 
         return [
             'id' => $this->id,
@@ -85,10 +102,19 @@ class ProjectResource extends JsonResource
                 'color' => $this->evaluationStatus->color,
                 'is_terminal' => (bool) $this->evaluationStatus->is_terminal,
             ] : null),
+            'latest_evaluation' => $this->when(
+                $canViewLatestEvaluation,
+                fn () => new ProjectEvaluationResource($latestEvaluation),
+            ),
             'abilities' => [
                 'update' => $user?->can('update', $this->resource) ?? false,
                 'delete' => $user?->can('delete', $this->resource) ?? false,
                 'evaluate' => $user?->can('evaluate', $this->resource) ?? false,
+                'view_evaluations' => $canViewEvaluations,
+                'create_evaluation' => $user?->can(
+                    'create',
+                    [ProjectEvaluation::class, $this->resource],
+                ) ?? false,
             ],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

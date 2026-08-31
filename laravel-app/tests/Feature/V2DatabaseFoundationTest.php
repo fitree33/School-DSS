@@ -207,6 +207,9 @@ class V2DatabaseFoundationTest extends TestCase
             '2026_08_17_000700_add_v2_foundation_fields_to_projects_table.php',
             '2026_08_17_000800_create_project_execution_status_histories_table.php',
             '2026_08_17_000900_backfill_project_v2_statuses.php',
+            '2026_08_25_000100_create_evaluation_frameworks_table.php',
+            '2026_08_25_000200_add_phase4_fields_to_evaluation_tables.php',
+            '2026_08_25_000300_create_project_evaluation_results_table.php',
         ];
         $migrations = array_map(
             fn (string $file) => $this->v2Migration($file),

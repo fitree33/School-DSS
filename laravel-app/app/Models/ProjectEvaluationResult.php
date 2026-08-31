@@ -4,19 +4,19 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ProjectEvaluation extends Model
+class ProjectEvaluationResult extends Model
 {
     protected $fillable = [
         'project_id',
-        'evaluator_id',
+        'project_evaluation_id',
         'evaluation_framework_id',
-        'round',
+        'evaluation_status_id',
         'total_score',
         'maximum_score',
         'percentage',
         'weighted_percentage',
-        'comment',
-        'evaluated_at',
+        'scores_snapshot',
+        'decision_note',
         'finalized_by',
         'finalized_at',
     ];
@@ -26,7 +26,7 @@ class ProjectEvaluation extends Model
         'maximum_score' => 'decimal:2',
         'percentage' => 'decimal:2',
         'weighted_percentage' => 'decimal:2',
-        'evaluated_at' => 'datetime',
+        'scores_snapshot' => 'array',
         'finalized_at' => 'datetime',
     ];
 
@@ -35,9 +35,9 @@ class ProjectEvaluation extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function evaluator()
+    public function evaluation()
     {
-        return $this->belongsTo(User::class, 'evaluator_id');
+        return $this->belongsTo(ProjectEvaluation::class, 'project_evaluation_id');
     }
 
     public function framework()
@@ -45,18 +45,13 @@ class ProjectEvaluation extends Model
         return $this->belongsTo(EvaluationFramework::class, 'evaluation_framework_id');
     }
 
+    public function status()
+    {
+        return $this->belongsTo(EvaluationStatus::class, 'evaluation_status_id');
+    }
+
     public function finalizer()
     {
         return $this->belongsTo(User::class, 'finalized_by');
-    }
-
-    public function scores()
-    {
-        return $this->hasMany(EvaluationScore::class, 'evaluation_id');
-    }
-
-    public function result()
-    {
-        return $this->hasOne(ProjectEvaluationResult::class, 'project_evaluation_id');
     }
 }

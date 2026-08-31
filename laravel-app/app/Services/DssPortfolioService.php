@@ -35,6 +35,7 @@ class DssPortfolioService
 
         $ranked = $projects->map(function (Project $project) use ($criteria, $weights) {
             $latestEvaluations = $project->evaluations
+                ->whereNull('evaluation_framework_id')
                 ->whereNotNull('evaluated_at')
                 ->sortByDesc(fn ($evaluation) => sprintf(
                     '%05d-%010d',

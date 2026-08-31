@@ -23,4 +23,9 @@ class EvaluationStatus extends Model
     {
         return $this->hasMany(Project::class);
     }
+
+    public function evaluationResults()
+    {
+        return $this->hasMany(ProjectEvaluationResult::class);
+    }
 }

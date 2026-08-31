@@ -71,6 +71,16 @@ class User extends Authenticatable
         return $this->hasMany(ProjectAccess::class);
     }
 
+    public function projectEvaluations()
+    {
+        return $this->hasMany(ProjectEvaluation::class, 'evaluator_id');
+    }
+
+    public function finalizedProjectEvaluationResults()
+    {
+        return $this->hasMany(ProjectEvaluationResult::class, 'finalized_by');
+    }
+
     public function notifications()
     {
         return $this->hasMany(ProjectNotification::class);

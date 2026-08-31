@@ -36,4 +36,9 @@ class FiscalYear extends Model
     {
         return $this->hasMany(Project::class);
     }
+
+    public function evaluationFrameworks()
+    {
+        return $this->hasMany(EvaluationFramework::class);
+    }
 }

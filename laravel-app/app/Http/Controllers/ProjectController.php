@@ -128,7 +128,9 @@ class ProjectController extends Controller
             'category',
             'owner',
             'latestDssResult.generator',
-            'evaluations.evaluator',
+            'evaluations' => fn ($query) => $query
+                ->whereNull('evaluation_framework_id')
+                ->with('evaluator'),
             'kpis',
             'completionReports.reporter',
         ]);
