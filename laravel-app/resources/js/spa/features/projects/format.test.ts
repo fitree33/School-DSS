@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateBudgetUsage, normalExecutionStatusCodes, projectBudgetView } from '@/features/projects/format';
+import { calculateBudgetUsage, formatDate, normalExecutionStatusCodes, projectBudgetView } from '@/features/projects/format';
+
+describe('project dates', () => {
+    it('formats both date-only values and API ISO timestamps', () => {
+        expect(formatDate('2026-08-25')).not.toContain('2026-08-25');
+        expect(formatDate('2026-08-25T09:30:00.000Z')).not.toContain('2026-08-25T09:30:00.000Z');
+    });
+});
 
 describe('project budget usage', () => {
     it('keeps overspending visible without clamping the percentage', () => {
