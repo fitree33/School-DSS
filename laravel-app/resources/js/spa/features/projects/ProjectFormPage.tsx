@@ -37,7 +37,6 @@ interface FormState {
     fiscal_year_id: string;
     school_plan_id: string;
     execution_status: string;
-    evaluation_status: string;
 }
 
 export function ProjectFormPage({ mode }: { mode: FormMode }) {
@@ -90,7 +89,6 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
         return <ErrorState action={<Link className="spa-button-secondary" to="/projects">กลับรายการโครงการ</Link>} message={error instanceof Error ? error.message : 'ไม่สามารถเตรียมแบบฟอร์มได้'} title="โหลดแบบฟอร์มไม่สำเร็จ" />;
     }
 
-    const canEvaluate = mode === 'edit' && projectQuery.data?.abilities.evaluate === true;
     const isReadOnly = mode === 'edit' && projectQuery.data?.abilities.update === false;
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -100,7 +98,7 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
         setSubmitError(null);
 
         try {
-            await mutation.mutateAsync(buildPayload(form, mode, canEvaluate));
+            await mutation.mutateAsync(buildPayload(form, mode));
         } catch (unknownError) {
             if (unknownError instanceof ApiError) {
                 if (unknownError.status === 403) {
@@ -169,10 +167,10 @@ export function ProjectFormPage({ mode }: { mode: FormMode }) {
                 </FormSection>
 
                 {mode === 'edit' && (
-                    <FormSection description="สถานะที่เลือกต้องเป็นค่าที่ระบบกำหนด และ API จะตรวจสิทธิ์อีกครั้ง" title="สถานะโครงการ">
+                    <FormSection description="ผลประเมินเปลี่ยนได้เฉพาะผ่านขั้นตอน Finalize ในระบบประเมินโครงการ" title="สถานะโครงการ">
                         <div className="grid gap-5 md:grid-cols-2">
                             <SelectField errors={fieldErrors.execution_status} label="สถานะการดำเนินงาน" onChange={(value) => update('execution_status', value)} required value={form.execution_status}><option value="">เลือกสถานะ</option>{availableExecutionStatuses.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</SelectField>
-                            {canEvaluate ? <SelectField errors={fieldErrors.evaluation_status} label="ผลประเมิน" onChange={(value) => update('evaluation_status', value)} required value={form.evaluation_status}><option value="">เลือกผลประเมิน</option>{options?.evaluation_statuses.map((item) => <option key={item.id} value={item.code}>{item.name}</option>)}</SelectField> : <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"><p className="text-sm font-semibold text-slate-700">ผลประเมิน</p><p className="mt-1 text-xs leading-5 text-slate-500">บัญชีนี้ไม่มีสิทธิ์เปลี่ยนผลประเมินของโครงการ</p></div>}
+                            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"><p className="text-sm font-semibold text-slate-700">ผลประเมิน</p><p className="mt-1 text-xs leading-5 text-slate-500">ดูและ Finalize ผลได้จากเมนู “ประเมินโครงการ” เท่านั้น</p></div>
                         </div>
                     </FormSection>
                 )}
@@ -208,7 +206,7 @@ function SelectField({ label, value, onChange, errors, children, ...props }: { l
 }
 
 const emptyForm: FormState = {
-    name: '', project_code: '', objective: '', description: '', rationale: '', target_group: '', strategy: '', key_points: '', budget: '', actual_spent: '0', budget_source: '', responsible_person: '', monitor_person: '', evaluation_method: '', evaluation_tools: '', start_date: '', end_date: '', department_id: '', project_category_id: '', academic_year_id: '', fiscal_year_id: '', school_plan_id: '', execution_status: '', evaluation_status: '',
+    name: '', project_code: '', objective: '', description: '', rationale: '', target_group: '', strategy: '', key_points: '', budget: '', actual_spent: '0', budget_source: '', responsible_person: '', monitor_person: '', evaluation_method: '', evaluation_tools: '', start_date: '', end_date: '', department_id: '', project_category_id: '', academic_year_id: '', fiscal_year_id: '', school_plan_id: '', execution_status: '',
 };
 
 const projectToForm = (project: Project): FormState => ({
@@ -235,12 +233,11 @@ const projectToForm = (project: Project): FormState => ({
     fiscal_year_id: String(project.fiscal_year?.id ?? ''),
     school_plan_id: String(project.school_plan?.id ?? ''),
     execution_status: project.execution_status?.code ?? '',
-    evaluation_status: project.evaluation_status?.code ?? '',
 });
 
 const nullable = (value: string): string | null => value.trim() || null;
 
-const buildPayload = (form: FormState, mode: FormMode, canEvaluate: boolean): ProjectPayload => {
+const buildPayload = (form: FormState, mode: FormMode): ProjectPayload => {
     const payload: ProjectPayload = {
         name: form.name.trim(),
         project_code: nullable(form.project_code),
@@ -268,7 +265,6 @@ const buildPayload = (form: FormState, mode: FormMode, canEvaluate: boolean): Pr
     if (mode === 'edit') {
         payload.actual_spent = form.actual_spent;
         payload.execution_status = form.execution_status;
-        if (canEvaluate) payload.evaluation_status = form.evaluation_status;
     }
 
     return payload;

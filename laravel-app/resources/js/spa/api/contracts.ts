@@ -71,6 +71,8 @@ export interface ProjectAbilities {
     update: boolean;
     delete: boolean;
     evaluate: boolean;
+    view_evaluations?: boolean;
+    create_evaluation?: boolean;
 }
 
 export interface ProjectBudgetMetrics {
@@ -113,6 +115,7 @@ export interface Project {
     approval_status: StatusOption | null;
     execution_status: StatusOption | null;
     evaluation_status: StatusOption | null;
+    latest_evaluation?: ProjectEvaluationSummary | null;
     budget_metrics?: ProjectBudgetMetrics;
     abilities: ProjectAbilities;
     created_at?: string;
@@ -175,7 +178,177 @@ export interface ProjectPayload {
     fiscal_year_id: number;
     school_plan_id: number | null;
     execution_status?: string;
-    evaluation_status?: string;
+}
+
+export type EvaluationStatusCode = 'pending' | 'passed' | 'failed';
+
+export interface EvaluationCriterion {
+    id: number;
+    name: string;
+    description: string | null;
+    max_score: number | string;
+    weight: number | string | null;
+    sort_order: number;
+    evaluation_method: string | null;
+    evaluation_tools: string | null;
+    is_active: boolean;
+}
+
+export interface EvaluationFrameworkAbilities {
+    update: boolean;
+    activate: boolean;
+    deactivate: boolean;
+    create_version: boolean;
+}
+
+export interface EvaluationFramework {
+    id: number;
+    code: string;
+    version: string;
+    name: string;
+    description: string | null;
+    fiscal_year: YearOption | null;
+    effective_from: string | null;
+    effective_to: string | null;
+    is_active: boolean;
+    is_used: boolean;
+    criteria: EvaluationCriterion[];
+    abilities?: Partial<EvaluationFrameworkAbilities>;
+    created_at?: string | null;
+    updated_at?: string | null;
+}
+
+export interface EvaluationScore {
+    id?: number;
+    evaluation_criterion_id: number;
+    criterion?: EvaluationCriterion;
+    score: number | string;
+    comment: string | null;
+}
+
+export interface ProjectEvaluationResult {
+    id: number;
+    status: StatusOption;
+    decision_note: string;
+    finalized_by: NamedOption | null;
+    finalized_at: string;
+    total_score: number | string;
+    maximum_score: number | string;
+    percentage: number | string | null;
+    weighted_percentage: number | string | null;
+}
+
+export interface ProjectEvaluationAbilities {
+    view: boolean;
+    update: boolean;
+    finalize: boolean;
+}
+
+export interface ProjectEvaluationSummary {
+    id: number;
+    round: number;
+    total_score: number | string;
+    maximum_score: number | string;
+    percentage: number | string | null;
+    weighted_percentage: number | string | null;
+    evaluated_at: string | null;
+    is_finalized?: boolean;
+    finalized_at: string | null;
+    evaluator: NamedOption | null;
+    framework: EvaluationFramework;
+    result: ProjectEvaluationResult | null;
+}
+
+export interface ProjectEvaluation extends ProjectEvaluationSummary {
+    project: Omit<EvaluationProject, 'latest_evaluation' | 'evaluation_count' | 'abilities'>;
+    comment: string | null;
+    scores: EvaluationScore[];
+    abilities: ProjectEvaluationAbilities;
+}
+
+export interface EvaluationProject {
+    id: number;
+    name: string;
+    project_code: string | null;
+    department: NamedOption | null;
+    fiscal_year: YearOption | null;
+    evaluation_status: StatusOption | null;
+    latest_evaluation?: ProjectEvaluationSummary | null;
+    evaluation_count?: number;
+    abilities: {
+        view_evaluations: boolean;
+        create_evaluation: boolean;
+    };
+}
+
+export interface EvaluationOptions {
+    fiscal_years: YearOption[];
+    departments: NamedOption[];
+    evaluation_statuses: StatusOption[];
+    frameworks?: EvaluationFramework[];
+    can: {
+        manage_frameworks: boolean;
+    };
+}
+
+export interface EvaluationFilters {
+    fiscal_year_id?: string;
+    department_id?: string;
+    evaluation_status?: EvaluationStatusCode | '';
+    page?: number;
+    per_page?: number;
+}
+
+export interface PaginatedEvaluationProjects {
+    data: EvaluationProject[];
+    links: PaginationLinks;
+    meta: PaginationMeta;
+}
+
+export interface PaginatedEvaluationFrameworks {
+    data: EvaluationFramework[];
+    links: PaginationLinks;
+    meta: PaginationMeta;
+}
+
+export interface EvaluationScorePayload {
+    evaluation_criterion_id: number;
+    score: string;
+    comment: string | null;
+}
+
+export interface ProjectEvaluationPayload {
+    evaluation_framework_id: number;
+    evaluated_at: string;
+    comment: string | null;
+    scores: EvaluationScorePayload[];
+}
+
+export interface FinalizeEvaluationPayload {
+    status: EvaluationStatusCode;
+    decision_note: string;
+}
+
+export interface EvaluationCriterionPayload {
+    name: string;
+    description: string | null;
+    max_score: string;
+    weight: string | null;
+    sort_order: number;
+    evaluation_method: string | null;
+    evaluation_tools: string | null;
+    is_active: boolean;
+}
+
+export interface EvaluationFrameworkPayload {
+    code: string;
+    version: string;
+    name: string;
+    description: string | null;
+    fiscal_year_id: number | null;
+    effective_from: string | null;
+    effective_to: string | null;
+    criteria: EvaluationCriterionPayload[];
 }
 
 export interface DashboardSchoolBudget {

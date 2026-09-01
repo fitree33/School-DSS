@@ -9,7 +9,7 @@ export const formatCurrency = (value: number | string | null | undefined): strin
 
 export const formatDate = (value: string | null | undefined): string => {
     if (!value) return '—';
-    const date = new Date(`${value}T00:00:00`);
+    const date = new Date(value.includes('T') ? value : `${value}T00:00:00`);
     return Number.isNaN(date.getTime())
         ? value
         : new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium' }).format(date);

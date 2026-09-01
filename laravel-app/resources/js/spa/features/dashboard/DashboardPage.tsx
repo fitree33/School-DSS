@@ -9,6 +9,7 @@ import type {
     DashboardExecutionStatusCounts,
     DashboardSchoolBudget,
 } from '@/api/contracts';
+import { useAuth } from '@/auth/AuthContext';
 import { EmptyState, ErrorState, LoadingBlock } from '@/components/Feedback';
 import { PageHeader } from '@/components/PageHeader';
 import { dashboardKeys, fetchDashboard } from '@/features/dashboard/api';
@@ -33,6 +34,7 @@ const evaluationStatuses: Array<{ code: keyof DashboardEvaluationStatusCounts; l
 ];
 
 export function DashboardPage() {
+    const { hasPermission } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const fiscalYearId = searchParams.get('fiscal_year_id') || undefined;
     const dashboardQuery = useQuery({
@@ -101,6 +103,7 @@ export function DashboardPage() {
                             filterName="execution_status"
                             fiscalYearId={selectedFiscalYearId}
                             items={executionStatuses}
+                            targetPath="/projects"
                             title="สถานะการดำเนินโครงการ"
                             total={dashboard.total_projects}
                         />
@@ -109,6 +112,7 @@ export function DashboardPage() {
                             filterName="evaluation_status"
                             fiscalYearId={selectedFiscalYearId}
                             items={evaluationStatuses}
+                            targetPath={hasPermission('evaluations.view') ? '/evaluations' : '/projects'}
                             title="ผลประเมินโครงการ"
                             total={dashboard.total_projects}
                         />
@@ -231,6 +235,7 @@ function StatusOverview<T extends DashboardExecutionStatusCounts | DashboardEval
     total,
     filterName,
     fiscalYearId,
+    targetPath,
 }: {
     title: string;
     counts: T;
@@ -238,6 +243,7 @@ function StatusOverview<T extends DashboardExecutionStatusCounts | DashboardEval
     total: number;
     filterName: 'execution_status' | 'evaluation_status';
     fiscalYearId: string;
+    targetPath: '/projects' | '/evaluations';
 }) {
     return (
         <section className="spa-card p-5 sm:p-6" aria-label={title}>
@@ -251,7 +257,7 @@ function StatusOverview<T extends DashboardExecutionStatusCounts | DashboardEval
                     const projectFilters = new URLSearchParams({ [filterName]: String(item.code) });
                     if (fiscalYearId) projectFilters.set('fiscal_year_id', fiscalYearId);
                     return (
-                        <Link className={`rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-sm ${item.tone}`} key={String(item.code)} to={`/projects?${projectFilters.toString()}`}>
+                        <Link className={`rounded-xl border p-4 transition hover:-translate-y-0.5 hover:shadow-sm ${item.tone}`} key={String(item.code)} to={`${targetPath}?${projectFilters.toString()}`}>
                             <p className="text-xs font-bold">{item.label}</p>
                             <p className="mt-2 text-2xl font-black tabular-nums">{count.toLocaleString('th-TH')}</p>
                         </Link>

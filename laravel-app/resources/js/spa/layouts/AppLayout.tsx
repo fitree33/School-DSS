@@ -3,11 +3,12 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { isApiError } from '@/api/client';
 import { useAuth } from '@/auth/AuthContext';
-import { BudgetIcon, CloseIcon, DashboardIcon, LogoutIcon, MenuIcon, ProjectsIcon } from '@/components/Icons';
+import { BudgetIcon, CloseIcon, DashboardIcon, EvaluationIcon, LogoutIcon, MenuIcon, ProjectsIcon } from '@/components/Icons';
 
 const navigation = [
     { label: 'แดชบอร์ด', to: '/dashboard', icon: DashboardIcon },
     { label: 'โครงการทั้งหมด', to: '/projects', icon: ProjectsIcon },
+    { label: 'ประเมินโครงการ', to: '/evaluations', icon: EvaluationIcon, permission: 'evaluations.view' },
     { label: 'จัดการงบประมาณ', to: '/budgets', icon: BudgetIcon, permission: 'budgets.manage' },
 ];
 
@@ -113,6 +114,8 @@ const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((par
 const pageTitle = (pathname: string) => {
     if (pathname === '/dashboard') return 'แดชบอร์ด';
     if (pathname.startsWith('/budgets')) return 'จัดการงบประมาณ';
+    if (pathname.startsWith('/evaluations/frameworks')) return 'ชุดเกณฑ์ประเมิน';
+    if (pathname.startsWith('/evaluations')) return 'ประเมินโครงการ';
     if (pathname.includes('/new')) return 'สร้างโครงการ';
     if (pathname.includes('/edit')) return 'แก้ไขโครงการ';
     if (pathname.startsWith('/projects/')) return 'รายละเอียดโครงการ';

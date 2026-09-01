@@ -24,6 +24,10 @@ export const BudgetIcon = (props: IconProps) => (
     <svg {...iconProps} {...props}><path d="M4 7h16v11H4zM4 10h16M7 15h3M15.5 14a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" /></svg>
 );
 
+export const EvaluationIcon = (props: IconProps) => (
+    <svg {...iconProps} {...props}><path d="M9 5H6a2 2 0 0 0-2 2v12h16V7a2 2 0 0 0-2-2h-3M9 3h6v4H9zM8 12l2 2 4-4M8 18h8" /></svg>
+);
+
 export const MenuIcon = (props: IconProps) => (
     <svg {...iconProps} {...props}><path d="M4 7h16M4 12h16M4 17h16" /></svg>
 );

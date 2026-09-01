@@ -2,11 +2,13 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom';
 
 import { isApiError } from '@/api/client';
+import { useAuth } from '@/auth/AuthContext';
 import { ErrorState, LoadingBlock } from '@/components/Feedback';
-import { ArrowLeftIcon, EditIcon, TrashIcon } from '@/components/Icons';
+import { ArrowLeftIcon, EditIcon, EvaluationIcon, TrashIcon } from '@/components/Icons';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { dashboardKeys } from '@/features/dashboard/api';
+import { formatEvaluationPercentage, formatScore } from '@/features/evaluations/score';
 import { deleteProject, fetchProject, projectKeys } from '@/features/projects/api';
 import { formatCurrency, formatDate, projectBudgetView, yearLabel } from '@/features/projects/format';
 
@@ -14,6 +16,7 @@ export function ProjectDetailPage() {
     const { projectId = '' } = useParams();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+    const { hasPermission } = useAuth();
     const projectQuery = useQuery({
         queryKey: projectKeys.detail(projectId),
         queryFn: () => fetchProject(projectId),
@@ -38,6 +41,8 @@ export function ProjectDetailPage() {
     }
 
     const project = projectQuery.data;
+    const canViewEvaluations = project.abilities.view_evaluations ?? hasPermission('evaluations.view');
+    const canCreateEvaluation = project.abilities.create_evaluation ?? (hasPermission('evaluations.create') && project.fiscal_year?.is_locked !== true);
     const { budget, actualSpent: spent, remaining, usedPercentage: usedPercent } = projectBudgetView(project);
     const usedPercentLabel = usedPercent === null
         ? 'ไม่มีวงเงิน (มีการใช้จ่าย)'
@@ -89,6 +94,19 @@ export function ProjectDetailPage() {
                     <DetailItem label="แหล่งงบประมาณ" value={project.budget_source} />
                     <DetailItem label="ผู้ติดตาม" value={project.monitor_person} />
                 </dl>
+            </section>
+
+            <section className="spa-card p-5 sm:p-7" aria-labelledby="project-evaluation-heading">
+                <div className="flex flex-col gap-4 border-b border-slate-100 pb-5 sm:flex-row sm:items-start sm:justify-between">
+                    <div><div className="flex items-center gap-3"><span className="grid size-10 place-items-center rounded-xl bg-teal-100 text-teal-800"><EvaluationIcon className="size-5" /></span><div><h2 className="font-bold text-slate-950" id="project-evaluation-heading">การประเมินโครงการ</h2><p className="mt-1 text-xs text-slate-500">ผลล่าสุดมาจากการ Finalize โดยผู้มีสิทธิ์เท่านั้น</p></div></div></div>
+                    {canViewEvaluations && <div className="flex flex-wrap gap-2">{project.latest_evaluation && <Link className="spa-button-secondary" to={`/evaluations/${project.latest_evaluation.id}`}>ดูผลล่าสุด</Link>}<Link className={canCreateEvaluation ? 'spa-button-primary' : 'spa-button-secondary'} to={`/evaluations/projects/${project.id}`}>{canCreateEvaluation ? 'ประเมิน / ดูประวัติ' : 'ดูประวัติ'}</Link></div>}
+                </div>
+                <div className="mt-5 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+                    <div><p className="text-xs font-semibold text-slate-500">สถานะประเมิน</p><div className="mt-2"><StatusBadge code={project.evaluation_status?.code} label={project.evaluation_status?.name} /></div></div>
+                    {canViewEvaluations && <><DetailItem label="คะแนนล่าสุด" value={project.latest_evaluation ? `${formatScore(project.latest_evaluation.total_score)} / ${formatScore(project.latest_evaluation.maximum_score)} (${formatEvaluationPercentage(project.latest_evaluation.percentage)})` : 'ยังไม่มีคะแนน'} /><DetailItem label="วันที่ประเมินล่าสุด" value={project.latest_evaluation ? formatDate(project.latest_evaluation.evaluated_at) : '—'} /><DetailItem label="ผู้ประเมินล่าสุด" value={project.latest_evaluation?.evaluator?.name ?? '—'} /></>}
+                </div>
+                {!canViewEvaluations && <p className="mt-5 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">บัญชีนี้ไม่มีสิทธิ์ดูรายละเอียดคะแนนและประวัติการประเมิน</p>}
+                {project.fiscal_year?.is_locked && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">ปีงบประมาณถูกล็อกแล้ว ข้อมูลการประเมินเป็นแบบอ่านอย่างเดียว</p>}
             </section>
 
             <section className="grid gap-5 xl:grid-cols-2">
