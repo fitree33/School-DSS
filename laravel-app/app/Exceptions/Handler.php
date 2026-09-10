@@ -33,6 +33,20 @@ class Handler extends ExceptionHandler
             //
         });
 
+        $this->renderable(function (ApiProblemException $exception, Request $request) {
+            if (! $request->is('api/v2/*')) {
+                return null;
+            }
+
+            return ApiErrorResponse::make(
+                $exception->getMessage(),
+                $exception->errorCode,
+                $exception->status,
+                $exception->errors,
+                $exception->headers,
+            );
+        });
+
         $this->renderable(function (HttpExceptionInterface $exception, Request $request) {
             if (! $request->is('api/v2/*')) {
                 return null;
@@ -68,6 +82,7 @@ class Handler extends ExceptionHandler
         $this->renderable(function (Throwable $exception, Request $request) {
             if (! $request->is('api/v2/*')
                 || $exception instanceof AuthenticationException
+                || $exception instanceof ApiProblemException
                 || $exception instanceof ValidationException
                 || $exception instanceof HttpExceptionInterface) {
                 return null;

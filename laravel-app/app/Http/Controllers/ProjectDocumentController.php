@@ -20,13 +20,15 @@ class ProjectDocumentController extends Controller
         ]);
 
         $file = $data['document'];
-        $path = $file->store("project-documents/{$project->id}");
+        $disk = config('filesystems.default');
+        $path = $file->store("project-documents/{$project->id}", $disk);
         $webhookUrl = config('services.n8n.document_webhook_url');
 
         $document = ProjectDocument::create([
             'project_id' => $project->id,
             'original_name' => $file->getClientOriginalName(),
             'path' => $path,
+            'storage_disk' => $disk,
             'mime_type' => $file->getMimeType(),
             'size' => $file->getSize(),
             'uploaded_by' => $request->user()->id,

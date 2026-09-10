@@ -4,14 +4,22 @@ use App\Http\Controllers\Api\ProjectSummaryController;
 use App\Http\Controllers\Api\V2\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Api\V2\Auth\MeController;
 use App\Http\Controllers\Api\V2\BudgetManagementController;
+use App\Http\Controllers\Api\V2\ConfirmDocumentImportController;
 use App\Http\Controllers\Api\V2\DashboardController;
+use App\Http\Controllers\Api\V2\DocumentImportController;
+use App\Http\Controllers\Api\V2\DocumentImportOptionsController;
 use App\Http\Controllers\Api\V2\EvaluationFrameworkController;
 use App\Http\Controllers\Api\V2\EvaluationOptionsController;
 use App\Http\Controllers\Api\V2\EvaluationProjectController;
+use App\Http\Controllers\Api\V2\ImportExtractionCallbackController;
+use App\Http\Controllers\Api\V2\ImportPreviewRevisionController;
 use App\Http\Controllers\Api\V2\ProjectController as V2ProjectController;
 use App\Http\Controllers\Api\V2\ProjectEvaluationController;
 use App\Http\Controllers\Api\V2\ProjectOptionsController;
+use App\Http\Middleware\VerifyImportCallbackSignature;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\SubstituteBindings;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful;
 
@@ -32,6 +40,14 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 
 Route::post('/projects/{project}/ai-summary', [ProjectSummaryController::class, 'store']);
 
+Route::post(
+    '/v2/import-extraction-runs/{run}/callback',
+    ImportExtractionCallbackController::class,
+)->withoutMiddleware([SubstituteBindings::class, ThrottleRequests::class.':api'])
+    ->middleware(['throttle:import-callback', VerifyImportCallbackSignature::class])
+    ->whereUuid('run')
+    ->name('api.v2.import-extraction-runs.callback');
+
 Route::prefix('v2')
     ->as('api.v2.')
     ->middleware(EnsureFrontendRequestsAreStateful::class)
@@ -44,6 +60,24 @@ Route::prefix('v2')
                 ->name('auth.logout');
             Route::get('/me', MeController::class)->name('me');
             Route::get('/dashboard', DashboardController::class)->name('dashboard');
+            Route::get('/imports/options', DocumentImportOptionsController::class)
+                ->name('imports.options');
+            Route::get('/imports', [DocumentImportController::class, 'index'])
+                ->name('imports.index');
+            Route::post('/imports', [DocumentImportController::class, 'store'])
+                ->name('imports.store');
+            Route::get('/imports/{documentImport}', [DocumentImportController::class, 'show'])
+                ->name('imports.show');
+            Route::get('/imports/{documentImport}/original', [DocumentImportController::class, 'original'])
+                ->name('imports.original');
+            Route::post('/imports/{documentImport}/retry', [DocumentImportController::class, 'retry'])
+                ->name('imports.retry');
+            Route::get('/imports/{documentImport}/preview-revisions', [ImportPreviewRevisionController::class, 'index'])
+                ->name('imports.preview-revisions.index');
+            Route::post('/imports/{documentImport}/preview-revisions', [ImportPreviewRevisionController::class, 'store'])
+                ->name('imports.preview-revisions.store');
+            Route::post('/imports/{documentImport}/confirm', ConfirmDocumentImportController::class)
+                ->name('imports.confirm');
             Route::get('/budget-management', [BudgetManagementController::class, 'index'])
                 ->name('budget-management.index');
             Route::put('/fiscal-years/{fiscalYear}/school-budget', [BudgetManagementController::class, 'updateSchoolBudget'])

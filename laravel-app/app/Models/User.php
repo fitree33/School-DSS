@@ -66,6 +66,11 @@ class User extends Authenticatable
         return $this->hasMany(Project::class);
     }
 
+    public function documentImports()
+    {
+        return $this->hasMany(DocumentImport::class, 'uploaded_by');
+    }
+
     public function projectAccess()
     {
         return $this->hasMany(ProjectAccess::class);

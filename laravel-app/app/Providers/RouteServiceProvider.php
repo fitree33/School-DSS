@@ -28,6 +28,11 @@ class RouteServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
 
+        RateLimiter::for('import-callback', function (Request $request) {
+            return Limit::perMinute(max(1, (int) config('project_imports.callback.max_requests_per_minute', 60)))
+                ->by('import-callback:'.$request->ip());
+        });
+
         $this->routes(function () {
             Route::middleware('api')
                 ->prefix('api')

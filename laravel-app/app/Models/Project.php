@@ -117,6 +117,11 @@ class Project extends Model
         return $this->hasMany(ProjectDocument::class)->latest();
     }
 
+    public function sourceImport()
+    {
+        return $this->hasOne(DocumentImport::class, 'confirmed_project_id');
+    }
+
     public function accessEntries()
     {
         return $this->hasMany(ProjectAccess::class);

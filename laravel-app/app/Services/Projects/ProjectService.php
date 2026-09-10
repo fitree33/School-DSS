@@ -17,63 +17,74 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
+use LogicException;
 use RuntimeException;
 
 class ProjectService
 {
     public function create(User $actor, array $attributes): Project
     {
+        return DB::transaction(
+            fn (): Project => $this->createInTransaction($actor, $attributes),
+            3,
+        );
+    }
+
+    /**
+     * Create a canonical project as part of a caller-owned transaction.
+     *
+     * Import confirmation uses this entry point so the project, access rows,
+     * histories, imported document association, and audits commit atomically.
+     */
+    public function createInTransaction(User $actor, array $attributes): Project
+    {
+        if (DB::transactionLevel() < 1) {
+            throw new LogicException('ProjectService::createInTransaction requires an active database transaction.');
+        }
+
         $draftStatusId = $this->statusId(ProjectStatus::class, 'draft');
         $notStartedStatusId = $this->statusId(ProjectExecutionStatus::class, 'not_started');
         $pendingEvaluationId = $this->statusId(EvaluationStatus::class, 'pending');
 
-        return DB::transaction(function () use (
-            $actor,
-            $attributes,
-            $draftStatusId,
-            $notStartedStatusId,
-            $pendingEvaluationId,
-        ) {
-            $this->ensureFiscalYearsWritable([$attributes['fiscal_year_id'] ?? null]);
+        $this->ensureFiscalYearsWritable([$attributes['fiscal_year_id'] ?? null]);
 
-            $project = Project::create(array_merge($attributes, [
-                'user_id' => $actor->id,
-                'responsible_person' => $attributes['responsible_person'] ?? $actor->name,
-                'actual_spent' => 0,
-                'project_status_id' => $draftStatusId,
-                'project_execution_status_id' => $notStartedStatusId,
-                'evaluation_status_id' => $pendingEvaluationId,
-            ]));
+        $project = Project::create(array_merge($attributes, [
+            'user_id' => $actor->id,
+            'responsible_person' => $attributes['responsible_person'] ?? $actor->name,
+            'actual_spent' => 0,
+            'project_status_id' => $draftStatusId,
+            'project_execution_status_id' => $notStartedStatusId,
+            'evaluation_status_id' => $pendingEvaluationId,
+        ]));
 
-            ProjectAccess::create([
-                'project_id' => $project->id,
-                'user_id' => $actor->id,
-                'can_view' => true,
-                'can_edit' => true,
-                'can_delete' => true,
-                'granted_by' => $actor->id,
-            ]);
+        ProjectAccess::create([
+            'project_id' => $project->id,
+            'user_id' => $actor->id,
+            'can_view' => true,
+            'can_edit' => true,
+            'can_delete' => true,
+            'granted_by' => $actor->id,
+        ]);
 
-            ProjectStatusHistory::create([
-                'project_id' => $project->id,
-                'from_status_id' => null,
-                'to_status_id' => $draftStatusId,
-                'changed_by' => $actor->id,
-                'comment' => 'สร้างโครงการผ่าน API V2',
-            ]);
+        ProjectStatusHistory::create([
+            'project_id' => $project->id,
+            'from_status_id' => null,
+            'to_status_id' => $draftStatusId,
+            'changed_by' => $actor->id,
+            'comment' => 'สร้างโครงการผ่าน API V2',
+        ]);
 
-            ProjectExecutionStatusHistory::create([
-                'project_id' => $project->id,
-                'from_status_id' => null,
-                'to_status_id' => $notStartedStatusId,
-                'changed_by' => $actor->id,
-                'comment' => 'กำหนดสถานะเริ่มต้น',
-            ]);
+        ProjectExecutionStatusHistory::create([
+            'project_id' => $project->id,
+            'from_status_id' => null,
+            'to_status_id' => $notStartedStatusId,
+            'changed_by' => $actor->id,
+            'comment' => 'กำหนดสถานะเริ่มต้น',
+        ]);
 
-            AuditLog::record('project.created', $project, [], $project->getAttributes());
+        AuditLog::record('project.created', $project, [], $project->getAttributes());
 
-            return $project->refresh();
-        });
+        return $project->refresh();
     }
 
     public function update(User $actor, Project $project, array $attributes): Project

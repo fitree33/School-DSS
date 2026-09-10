@@ -34,7 +34,7 @@ class AuthApiTest extends TestCase
             ->assertJsonPath('data.id', $user->id)
             ->assertJsonPath('data.email', $user->email)
             ->assertJsonPath('data.role.code', 'teacher')
-            ->assertJsonPath('data.permissions.0', 'projects.create')
+            ->assertJsonPath('data.permissions', ['imports.create', 'projects.create'])
             ->assertJsonMissingPath('data.tokens');
 
         $this->assertAuthenticatedAs($user->fresh());

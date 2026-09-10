@@ -5,6 +5,7 @@ namespace App\Http;
 use App\Http\Middleware\Authenticate;
 use App\Http\Middleware\EncryptCookies;
 use App\Http\Middleware\EnsureActiveUser;
+use App\Http\Middleware\LimitImportCallbackBody;
 use App\Http\Middleware\PreventRequestForgery;
 use App\Http\Middleware\PreventRequestsDuringMaintenance;
 use App\Http\Middleware\RedirectIfAuthenticated;
@@ -42,6 +43,7 @@ class Kernel extends HttpKernel
         TrustProxies::class,
         HandleCors::class,
         PreventRequestsDuringMaintenance::class,
+        LimitImportCallbackBody::class,
         ValidatePostSize::class,
         TrimStrings::class,
         ConvertEmptyStringsToNull::class,

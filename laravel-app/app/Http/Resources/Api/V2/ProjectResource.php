@@ -2,7 +2,9 @@
 
 namespace App\Http\Resources\Api\V2;
 
+use App\Models\ProjectDocument;
 use App\Models\ProjectEvaluation;
+use App\Models\ProjectKpi;
 use App\Services\Budgets\BudgetMetricsService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -55,6 +57,27 @@ class ProjectResource extends JsonResource
             'evaluation_tools' => $this->evaluation_tools,
             'start_date' => $this->start_date?->toDateString(),
             'end_date' => $this->end_date?->toDateString(),
+            'kpis' => $this->whenLoaded('kpis', fn () => $this->kpis->map(fn (ProjectKpi $kpi): array => [
+                'id' => $kpi->id,
+                'name' => $kpi->name,
+                'target_value' => $kpi->target_value,
+                'actual_value' => $kpi->actual_value,
+                'unit' => $kpi->unit,
+            ])),
+            'documents' => $this->whenLoaded('documents', fn () => $this->documents->map(function (ProjectDocument $document) use ($user): array {
+                $sourceImport = $document->relationLoaded('sourceImport') ? $document->sourceImport : null;
+
+                return [
+                    'id' => $document->id,
+                    'original_name' => $document->original_name,
+                    'mime_type' => $document->mime_type,
+                    'size_bytes' => $document->size !== null ? (int) $document->size : null,
+                    'source_import_id' => $document->source_import_id !== null ? (int) $document->source_import_id : null,
+                    'download_url' => $sourceImport !== null && $user?->can('viewOriginal', $sourceImport)
+                        ? route('api.v2.imports.original', $sourceImport, false)
+                        : null,
+                ];
+            })),
             'owner' => $this->whenLoaded('owner', fn () => $this->owner ? [
                 'id' => $this->owner->id,
                 'name' => $this->owner->name,

@@ -28,6 +28,11 @@ class AuthorizationSeeder extends Seeder
             ['code' => 'evaluations.manage_frameworks', 'name' => 'จัดการชุดเกณฑ์ประเมิน'],
             ['code' => 'budgets.manage', 'name' => 'จัดการงบประมาณ'],
             ['code' => 'users.manage', 'name' => 'จัดการผู้ใช้งาน'],
+            ['code' => 'imports.create', 'name' => 'Create project imports'],
+            ['code' => 'imports.view_department', 'name' => 'View department project imports'],
+            ['code' => 'imports.view_all', 'name' => 'View all project imports'],
+            ['code' => 'imports.manage_department', 'name' => 'Manage department project imports'],
+            ['code' => 'imports.manage_all', 'name' => 'Manage all project imports'],
         ])->mapWithKeys(function (array $permission) {
             $model = Permission::firstOrCreate(
                 ['code' => $permission['code']],
@@ -48,6 +53,7 @@ class AuthorizationSeeder extends Seeder
                     'projects.view_all', 'projects.create', 'projects.edit_all',
                     'projects.manage_access', 'projects.evaluate',
                     'evaluations.view', 'evaluations.create', 'evaluations.update',
+                    'imports.create', 'imports.view_all', 'imports.manage_all',
                 ],
             ],
             'department_head' => [
@@ -57,11 +63,12 @@ class AuthorizationSeeder extends Seeder
                     'projects.edit_department', 'projects.delete_department',
                     'projects.evaluate',
                     'evaluations.view', 'evaluations.create', 'evaluations.update',
+                    'imports.create', 'imports.view_department', 'imports.manage_department',
                 ],
             ],
             'teacher' => [
                 'name' => 'ครู',
-                'permissions' => ['projects.create'],
+                'permissions' => ['projects.create', 'imports.create'],
             ],
         ];
 

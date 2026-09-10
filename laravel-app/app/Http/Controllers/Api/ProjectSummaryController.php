@@ -21,7 +21,7 @@ class ProjectSummaryController extends Controller
 
         $data = $request->validate([
             'summary' => ['required', 'string'],
-            'document_id' => ['nullable', 'integer'],
+            'document_id' => ['nullable', 'integer', 'min:1'],
         ]);
 
         return DB::transaction(function () use ($project, $data) {
@@ -34,18 +34,31 @@ class ProjectSummaryController extends Controller
                 ], 423);
             }
 
-            $oldSummary = $project->ai_summary;
-            $project->update(['ai_summary' => $data['summary'], 'ai_summarized_at' => now()]);
-
             $documentQuery = ProjectDocument::query()
                 ->where('project_id', $project->id)
+                ->lockForUpdate()
                 ->when(
                     $data['document_id'] ?? null,
                     fn ($query, $documentId) => $query->whereKey($documentId),
-                    fn ($query) => $query->where('processing_status', 'processing')->latest()
+                    fn ($query) => $query->whereNull('source_import_id')
+                        ->where('processing_status', 'processing')->latest()
                 );
 
-            $documentQuery->first()?->update([
+            $document = isset($data['document_id'])
+                ? $documentQuery->firstOrFail()
+                : $documentQuery->first();
+
+            if ($document?->isImportedOriginal()) {
+                return response()->json([
+                    'message' => 'Imported originals cannot be processed through the legacy document workflow.',
+                    'code' => 'imported_original_immutable',
+                ], 409);
+            }
+
+            $oldSummary = $project->ai_summary;
+            $project->update(['ai_summary' => $data['summary'], 'ai_summarized_at' => now()]);
+
+            $document?->update([
                 'processing_status' => 'completed',
                 'processed_at' => now(),
                 'processing_error' => null,

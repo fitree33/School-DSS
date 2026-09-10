@@ -13,6 +13,11 @@ class Department extends Model
         return $this->hasMany(Project::class);
     }
 
+    public function documentImports()
+    {
+        return $this->hasMany(DocumentImport::class, 'uploader_department_id');
+    }
+
     public function departmentBudgets()
     {
         return $this->hasMany(DepartmentBudget::class);

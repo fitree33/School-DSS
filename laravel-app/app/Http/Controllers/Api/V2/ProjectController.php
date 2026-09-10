@@ -87,7 +87,11 @@ class ProjectController extends Controller
         $this->authorize('view', $project);
 
         return new ProjectResource(
-            $project->load($this->relations(request()->user()->id))
+            $project->load([
+                ...$this->relations(request()->user()->id),
+                'kpis',
+                'documents.sourceImport:id,public_id,uploaded_by,uploader_department_id',
+            ])
         );
     }
 
