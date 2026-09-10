@@ -71,3 +71,23 @@ export const ArrowLeftIcon = (props: IconProps) => (
 export const FolderIcon = (props: IconProps) => (
     <svg {...iconProps} {...props}><path d="M3 7h7l2 2h9v10H3zM3 7V5h7l2 2" /></svg>
 );
+
+export const UploadIcon = (props: IconProps) => (
+    <svg {...iconProps} {...props}><path d="M12 16V4M7 9l5-5 5 5M5 14v6h14v-6" /></svg>
+);
+
+export const DocumentIcon = (props: IconProps) => (
+    <svg {...iconProps} {...props}><path d="M6 3h8l4 4v14H6zM14 3v5h5M9 13h6M9 17h6" /></svg>
+);
+
+export const RefreshIcon = (props: IconProps) => (
+    <svg {...iconProps} {...props}><path d="M20 7v5h-5M4 17v-5h5M18.5 12a7 7 0 0 0-12-4.5L4 10M5.5 12a7 7 0 0 0 12 4.5L20 14" /></svg>
+);
+
+export const CheckCircleIcon = (props: IconProps) => (
+    <svg {...iconProps} {...props}><circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16.5 8" /></svg>
+);
+
+export const WarningIcon = (props: IconProps) => (
+    <svg {...iconProps} {...props}><path d="M12 3 2.5 20h19zM12 9v4M12 17h.01" /></svg>
+);

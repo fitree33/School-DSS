@@ -82,6 +82,23 @@ export interface ProjectBudgetMetrics {
     used_percentage: number | null;
 }
 
+export interface ProjectKpi {
+    id: number;
+    name: string;
+    target_value: string | number | null;
+    actual_value: string | number | null;
+    unit: string | null;
+}
+
+export interface ProjectDocument {
+    id: number;
+    original_name: string;
+    mime_type: string | null;
+    size_bytes: number | null;
+    source_import_id: number | null;
+    download_url: string | null;
+}
+
 export interface Project {
     id: number;
     name: string;
@@ -117,6 +134,8 @@ export interface Project {
     evaluation_status: StatusOption | null;
     latest_evaluation?: ProjectEvaluationSummary | null;
     budget_metrics?: ProjectBudgetMetrics;
+    kpis?: ProjectKpi[];
+    documents?: ProjectDocument[];
     abilities: ProjectAbilities;
     created_at?: string;
     updated_at?: string;
@@ -439,4 +458,158 @@ export interface DepartmentBudgetPayload {
     allocated_amount: string;
     is_allocated: boolean;
     notes: string | null;
+}
+
+export type DocumentImportStatus = 'uploaded' | 'processing' | 'needs_review' | 'confirmed' | 'failed';
+
+export type AiExtractionRunStatus = 'queued' | 'processing' | 'succeeded' | 'failed' | 'superseded';
+
+export interface ImportWarningDetail {
+    code?: string;
+    field?: string | null;
+    message: string;
+}
+
+export type ImportWarning = string | ImportWarningDetail;
+
+export interface ImportIndicatorPayload {
+    name: string;
+    target_value: string | null;
+    unit: string | null;
+}
+
+export interface ProjectImportPreviewPayload {
+    name: string;
+    fiscal_year_id: number | null;
+    department_id: number | null;
+    school_plan_id: number | null;
+    project_category_id: number | null;
+    academic_year_id: number | null;
+    responsible_person: string | null;
+    monitor_person: string | null;
+    start_date: string | null;
+    end_date: string | null;
+    budget: string;
+    objective: string;
+    key_points: string | null;
+    evaluation_method: string | null;
+    evaluation_tools: string | null;
+    indicators: ImportIndicatorPayload[];
+}
+
+export interface ImportPreviewRevision {
+    id: number;
+    revision_no: number;
+    source: 'ai' | 'user';
+    payload: ProjectImportPreviewPayload;
+    raw_payload?: unknown;
+    validation_errors: Record<string, string[]>;
+    warnings: ImportWarning[];
+    confidence: Record<string, number | null>;
+    edited_by: NamedOption | null;
+    created_at: string;
+}
+
+export interface ImportOriginalDocument {
+    name: string;
+    mime_type: string;
+    size_bytes: number;
+    sha256: string;
+    download_url: string | null;
+}
+
+export interface ImportExtractionSnapshot {
+    run_id?: number | string;
+    values?: Record<string, unknown>;
+    payload?: Record<string, unknown>;
+    confidence?: Record<string, number | null>;
+    warnings?: ImportWarning[];
+    created_at?: string | null;
+}
+
+export interface ImportExtractionRunSummary {
+    id: number;
+    public_id?: string;
+    attempt_no: number;
+    status: AiExtractionRunStatus;
+    provider: string;
+    model?: string | null;
+    started_at?: string | null;
+    finished_at?: string | null;
+}
+
+export interface ImportConfirmedProject {
+    id: number;
+    name: string;
+    project_code?: string | null;
+    url?: string | null;
+}
+
+export interface DocumentImportAbilities {
+    view_original: boolean;
+    review: boolean;
+    retry: boolean;
+    confirm: boolean;
+}
+
+export interface DocumentImportFailure {
+    stage: string | null;
+    code: string;
+    message: string;
+}
+
+export interface DocumentImport {
+    id: number;
+    public_id: string;
+    status: DocumentImportStatus;
+    processing_stage: string | null;
+    original: ImportOriginalDocument;
+    uploader: NamedOption | null;
+    uploader_department?: NamedOption | null;
+    latest_run: ImportExtractionRunSummary | null;
+    original_extraction: ImportExtractionSnapshot | null;
+    current_preview: ImportPreviewRevision | null;
+    confirmed_project: ImportConfirmedProject | null;
+    failure: DocumentImportFailure | null;
+    abilities: DocumentImportAbilities;
+    extracted_at: string | null;
+    confirmed_at: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface DocumentImportOptions {
+    project_options: ProjectOptions;
+    constraints: {
+        max_bytes: number;
+        accepted_mime_types: string[];
+    };
+}
+
+export interface DocumentImportFilters {
+    status?: DocumentImportStatus | '';
+    page?: number;
+    per_page?: number;
+}
+
+export interface PaginatedDocumentImports {
+    data: DocumentImport[];
+    links: PaginationLinks;
+    meta: PaginationMeta;
+}
+
+export interface CreateImportPreviewRevisionPayload {
+    base_revision_id: number;
+    payload: ProjectImportPreviewPayload;
+    idempotency_key: string;
+}
+
+export interface ConfirmDocumentImportPayload {
+    preview_revision_id: number;
+    idempotency_key: string;
+}
+
+export interface DocumentImportConfirmation {
+    document_import: DocumentImport;
+    project: ImportConfirmedProject;
 }

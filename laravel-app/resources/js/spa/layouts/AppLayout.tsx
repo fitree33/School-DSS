@@ -3,13 +3,19 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { isApiError } from '@/api/client';
 import { useAuth } from '@/auth/AuthContext';
-import { BudgetIcon, CloseIcon, DashboardIcon, EvaluationIcon, LogoutIcon, MenuIcon, ProjectsIcon } from '@/components/Icons';
+import { BudgetIcon, CloseIcon, DashboardIcon, EvaluationIcon, LogoutIcon, MenuIcon, ProjectsIcon, UploadIcon } from '@/components/Icons';
 
 const navigation = [
     { label: 'แดชบอร์ด', to: '/dashboard', icon: DashboardIcon },
     { label: 'โครงการทั้งหมด', to: '/projects', icon: ProjectsIcon },
-    { label: 'ประเมินโครงการ', to: '/evaluations', icon: EvaluationIcon, permission: 'evaluations.view' },
-    { label: 'จัดการงบประมาณ', to: '/budgets', icon: BudgetIcon, permission: 'budgets.manage' },
+    {
+        label: 'นำเข้าโครงการ',
+        to: '/imports',
+        icon: UploadIcon,
+        permissions: ['imports.create', 'imports.view_department', 'imports.view_all'],
+    },
+    { label: 'ประเมินโครงการ', to: '/evaluations', icon: EvaluationIcon, permissions: ['evaluations.view'] },
+    { label: 'จัดการงบประมาณ', to: '/budgets', icon: BudgetIcon, permissions: ['budgets.manage'] },
 ];
 
 export function AppLayout() {
@@ -54,7 +60,7 @@ export function AppLayout() {
 
                 <nav aria-label="เมนูหลัก" className="flex-1 space-y-1 px-4 py-6">
                     <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.18em] text-slate-500">พื้นที่ทำงาน</p>
-                    {navigation.filter(({ permission }) => !permission || hasPermission(permission)).map(({ label, to, icon: Icon }) => (
+                    {navigation.filter(({ permissions }) => !permissions || permissions.some(hasPermission)).map(({ label, to, icon: Icon }) => (
                         <NavLink
                             className={({ isActive }) => `flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-semibold transition ${isActive ? 'bg-teal-600 text-white shadow-lg shadow-teal-950/30' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}
                             end={to === '/dashboard'}
@@ -113,6 +119,10 @@ const initials = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((par
 
 const pageTitle = (pathname: string) => {
     if (pathname === '/dashboard') return 'แดชบอร์ด';
+    if (pathname === '/imports/new') return 'อัปโหลดเอกสารโครงการ';
+    if (pathname.endsWith('/preview') && pathname.startsWith('/imports/')) return 'ตรวจสอบข้อมูลนำเข้า';
+    if (pathname.startsWith('/imports/')) return 'รายละเอียดการนำเข้า';
+    if (pathname.startsWith('/imports')) return 'นำเข้าโครงการ';
     if (pathname.startsWith('/budgets')) return 'จัดการงบประมาณ';
     if (pathname.startsWith('/evaluations/frameworks')) return 'ชุดเกณฑ์ประเมิน';
     if (pathname.startsWith('/evaluations')) return 'ประเมินโครงการ';

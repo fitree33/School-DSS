@@ -9,6 +9,10 @@ import { EvaluationFrameworkFormPage } from '@/features/evaluations/EvaluationFr
 import { EvaluationFrameworkListPage } from '@/features/evaluations/EvaluationFrameworkListPage';
 import { EvaluationListPage } from '@/features/evaluations/EvaluationListPage';
 import { ProjectEvaluationPage } from '@/features/evaluations/ProjectEvaluationPage';
+import { ImportDetailPage } from '@/features/imports/ImportDetailPage';
+import { ImportListPage } from '@/features/imports/ImportListPage';
+import { ImportPreviewPage } from '@/features/imports/ImportPreviewPage';
+import { ImportUploadPage } from '@/features/imports/ImportUploadPage';
 import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage';
 import { ProjectFormPage } from '@/features/projects/ProjectFormPage';
 import { ProjectListPage } from '@/features/projects/ProjectListPage';
@@ -28,6 +32,13 @@ export const router = createBrowserRouter(
                     path: '/budgets',
                     element: <RequirePermission permission="budgets.manage"><BudgetManagementPage /></RequirePermission>,
                 },
+                { path: '/imports', element: <ImportListPage /> },
+                {
+                    path: '/imports/new',
+                    element: <RequirePermission permission="imports.create"><ImportUploadPage /></RequirePermission>,
+                },
+                { path: '/imports/:importId', element: <ImportDetailPage /> },
+                { path: '/imports/:importId/preview', element: <ImportPreviewPage /> },
                 { path: '/projects', element: <ProjectListPage /> },
                 { path: '/projects/:projectId', element: <ProjectDetailPage /> },
                 { path: '/projects/:projectId/edit', element: <ProjectFormPage mode="edit" /> },

@@ -5,6 +5,7 @@ import { isApiError } from '@/api/client';
 import { useAuth } from '@/auth/AuthContext';
 import { ErrorState, LoadingBlock } from '@/components/Feedback';
 import { ArrowLeftIcon, EditIcon, EvaluationIcon, TrashIcon } from '@/components/Icons';
+import { OriginalDocumentDownloadButton } from '@/components/OriginalDocumentDownloadButton';
 import { PageHeader } from '@/components/PageHeader';
 import { StatusBadge } from '@/components/StatusBadge';
 import { dashboardKeys } from '@/features/dashboard/api';
@@ -118,6 +119,48 @@ export function ProjectDetailPage() {
                 <TextSection label="กลยุทธ์" value={project.strategy} />
                 <TextSection label="วิธีประเมิน" value={project.evaluation_method} />
                 <TextSection label="เครื่องมือประเมิน" value={project.evaluation_tools} />
+            </section>
+
+            <section aria-labelledby="project-kpis-heading" className="spa-card p-5 sm:p-7">
+                <h2 className="font-bold text-slate-950" id="project-kpis-heading">KPI / ตัวชี้วัด</h2>
+                {project.kpis?.length ? (
+                    <div className="mt-5 overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="border-b border-slate-200 text-xs text-slate-500">
+                                <tr><th className="px-3 py-3" scope="col">ตัวชี้วัด</th><th className="px-3 py-3" scope="col">เป้าหมาย</th><th className="px-3 py-3" scope="col">หน่วย</th><th className="px-3 py-3" scope="col">ผลจริง</th></tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {project.kpis.map((kpi) => (
+                                    <tr key={kpi.id}>
+                                        <th className="px-3 py-4 font-semibold text-slate-900" scope="row">{kpi.name}</th>
+                                        <td className="px-3 py-4 text-slate-700">{formatScore(kpi.target_value)}</td>
+                                        <td className="px-3 py-4 text-slate-700">{kpi.unit || '—'}</td>
+                                        <td className="px-3 py-4 text-slate-700">{formatScore(kpi.actual_value)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                ) : <p className="mt-3 text-sm text-slate-500">ยังไม่มีตัวชี้วัดสำหรับโครงการนี้</p>}
+            </section>
+
+            <section aria-labelledby="project-documents-heading" className="spa-card p-5 sm:p-7">
+                <h2 className="font-bold text-slate-950" id="project-documents-heading">เอกสารโครงการ / เอกสารต้นฉบับ</h2>
+                {project.documents?.length ? (
+                    <ul className="mt-5 divide-y divide-slate-100">
+                        {project.documents.map((document) => (
+                            <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between" key={document.id}>
+                                <div className="min-w-0">
+                                    <p className="break-words text-sm font-semibold text-slate-900">{document.original_name}</p>
+                                    {document.source_import_id !== null && <p className="mt-1 text-xs text-slate-500">เอกสารต้นฉบับจากการนำเข้า</p>}
+                                </div>
+                                {document.download_url ? (
+                                    <OriginalDocumentDownloadButton filename={document.original_name} url={document.download_url} />
+                                ) : <p className="text-sm text-slate-500">เอกสารนี้ยังไม่พร้อมให้เปิดหรือไม่มีสิทธิ์เข้าถึงไฟล์</p>}
+                            </li>
+                        ))}
+                    </ul>
+                ) : <p className="mt-3 text-sm text-slate-500">ยังไม่มีเอกสารสำหรับโครงการนี้</p>}
             </section>
         </div>
     );

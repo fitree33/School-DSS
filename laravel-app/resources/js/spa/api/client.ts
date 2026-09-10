@@ -57,6 +57,18 @@ apiClient.interceptors.response.use(
             return Promise.reject(unknownError);
         }
 
+        // Binary downloads still return the normal JSON error contract on failure.
+        if (typeof Blob !== 'undefined' && unknownError.response?.data instanceof Blob) {
+            const body = unknownError.response.data;
+            if (body.type.includes('json')) {
+                try {
+                    unknownError.response.data = JSON.parse(await body.text()) as ApiErrorPayload;
+                } catch {
+                    // Preserve the HTTP status and generic error for a malformed response.
+                }
+            }
+        }
+
         const request = unknownError.config as CsrfRetriableRequest | undefined;
         const isCsrfRequest = request?.url?.includes('/sanctum/csrf-cookie') === true;
 
