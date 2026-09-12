@@ -217,6 +217,7 @@ trait BuildsPhaseFiveImports
         $this->assertDatabaseCount('projects', 0);
         $this->assertDatabaseCount('project_kpis', 0);
         $this->assertDatabaseCount('project_documents', 0);
+        $this->assertDatabaseCount('document_versions', 0);
         $this->assertDatabaseCount('document_contents', 0);
         $this->assertDatabaseCount('project_access', 0);
         $this->assertDatabaseCount('project_status_histories', 0);

@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use LogicException;
 use Tests\Feature\Api\V2\Concerns\BuildsPhaseFiveImports;
 use Tests\TestCase;
 
@@ -63,7 +64,7 @@ class ImportedDocumentLegacyLifecycleTest extends TestCase
         $bytes = Storage::disk($original->storage_disk)->get($original->path);
 
         $this->post("/projects/{$project->id}/documents", [
-            'document' => UploadedFile::fake()->create($original->original_name, 1, 'application/pdf'),
+            'document' => UploadedFile::fake()->createWithContent($original->original_name, "%PDF-1.4\nLegacy upload\n%%EOF\n"),
             'document_id' => $original->id,
             'source_import_id' => $original->source_import_id,
             'path' => $original->path,
@@ -94,18 +95,30 @@ class ImportedDocumentLegacyLifecycleTest extends TestCase
         $this->assertNotNull($legacy->processed_at);
         $this->assertNull($legacy->processing_error);
 
-        $legacy->update(['original_name' => 'renamed.pdf', 'version' => 2]);
+        try {
+            $legacy->update(['original_name' => 'renamed.pdf']);
+            $this->fail('The versioned source name was changed.');
+        } catch (LogicException) {
+            $this->assertSame($original->original_name, $legacy->refresh()->original_name);
+        }
+        $legacy->update(['version' => 2]);
+        $this->assertSame(1, $legacy->initialVersion->revision_no);
         $legacyContent = $legacy->content()->create(['extracted_text' => 'Legacy text.']);
         $legacyContent->update(['extracted_text' => 'Revised legacy text.']);
         $this->assertSame('Revised legacy text.', $legacyContent->refresh()->extracted_text);
         $legacyContent->delete();
-        $legacy->delete();
+        try {
+            $legacy->delete();
+            $this->fail('The versioned source was deleted.');
+        } catch (LogicException) {
+            $this->assertDatabaseHas('project_documents', ['id' => $legacy->id]);
+        }
 
-        $this->assertDatabaseMissing('project_documents', ['id' => $legacy->id]);
         $this->assertSame($originalBefore, $original->refresh()->getRawOriginal());
         $this->assertSame($contentBefore, $original->content->getRawOriginal());
         $this->assertSame($bytes, Storage::disk($original->storage_disk)->get($original->path));
-        $this->assertDatabaseCount('project_documents', 1);
+        $this->assertDatabaseCount('project_documents', 2);
+        $this->assertDatabaseCount('document_versions', 2);
         $this->assertDatabaseCount('document_contents', 1);
     }
 
@@ -147,7 +160,7 @@ class ImportedDocumentLegacyLifecycleTest extends TestCase
         Http::fake(['legacy-provider.test/*' => Http::response(['error' => 'Unavailable'], 503)]);
 
         $this->post("/projects/{$project->id}/documents", [
-            'document' => UploadedFile::fake()->create('legacy.pdf', 1, 'application/pdf'),
+            'document' => UploadedFile::fake()->createWithContent('legacy.pdf', "%PDF-1.4\nLegacy upload\n%%EOF\n"),
         ])->assertRedirect()->assertSessionHas('warning');
 
         $legacy = $project->documents()->whereNull('source_import_id')->sole();

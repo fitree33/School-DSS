@@ -528,7 +528,7 @@ class DocumentImportConfirmationTest extends TestCase
         $url = "/projects/{$importedDocument->project_id}/documents";
 
         $this->post($url, [
-            'document' => UploadedFile::fake()->create($importedDocument->original_name, 1, 'application/pdf'),
+            'document' => UploadedFile::fake()->createWithContent($importedDocument->original_name, "%PDF-1.4\nLegacy upload\n%%EOF\n"),
         ])->assertRedirect();
         $legacy = ProjectDocument::query()->whereNull('source_import_id')->sole();
         $this->assertNotSame($importedDocument->path, $legacy->path);
@@ -548,16 +548,28 @@ class DocumentImportConfirmationTest extends TestCase
             $this->assertNotSame('', $exception->getMessage());
         }
 
-        $legacy->refresh()->update(['original_name' => 'updated-legacy.pdf', 'version' => 2]);
+        try {
+            $legacy->refresh()->update(['original_name' => 'updated-legacy.pdf']);
+            $this->fail('The versioned source name was changed.');
+        } catch (LogicException) {
+            $this->assertSame($importedDocument->original_name, $legacy->refresh()->original_name);
+        }
+        $legacy->update(['version' => 2]);
+        $this->assertSame(1, $legacy->initialVersion->revision_no);
         $legacyContent = $legacy->content()->create(['extracted_text' => 'Legacy text']);
         $legacyContent->update(['extracted_text' => 'Updated legacy text']);
         $this->assertSame('Updated legacy text', $legacyContent->refresh()->extracted_text);
-        $this->assertSame('updated-legacy.pdf', $legacy->refresh()->original_name);
+        $this->assertSame($importedDocument->original_name, $legacy->refresh()->original_name);
         $this->assertNull($legacy->source_import_id);
         $legacyContent->delete();
-        $legacy->delete();
-        $this->assertDatabaseMissing('project_documents', ['id' => $legacy->id]);
-        $this->assertDatabaseCount('project_documents', 1);
+        try {
+            $legacy->delete();
+            $this->fail('The versioned source was deleted.');
+        } catch (LogicException) {
+            $this->assertDatabaseHas('project_documents', ['id' => $legacy->id]);
+        }
+        $this->assertDatabaseCount('project_documents', 2);
+        $this->assertDatabaseCount('document_versions', 2);
         $this->assertDatabaseCount('document_contents', 1);
         $this->assertSame($documentBefore, $importedDocument->refresh()->getRawOriginal());
         $this->assertSame($originalBytes, Storage::disk('project-imports')->get($import->storage_path));

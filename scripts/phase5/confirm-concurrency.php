@@ -96,7 +96,7 @@ try {
     $results = array_map(fn (int $number): array => json_decode(file_get_contents($runtime.'/result-'.$number.'.json'), true, 512, JSON_THROW_ON_ERROR), [1, 2]);
     $counts = [];
     $expectedCounts = ['projects' => 1, 'project_kpis' => 2, 'project_documents' => 1,
-        'document_contents' => 1, 'project_access' => 1, 'project_status_histories' => 1,
+        'document_contents' => 1, 'document_versions' => 1, 'project_access' => 1, 'project_status_histories' => 1,
         'project_execution_status_histories' => 1, 'audit_logs' => 4, 'import_preview_revisions' => 1];
     foreach (array_keys($expectedCounts) as $table) {
         $counts[$table] = DB::table($table)->count();
