@@ -91,6 +91,7 @@ class ProjectController extends Controller
                 ...$this->relations(request()->user()->id),
                 'kpis',
                 'documents.sourceImport:id,public_id,uploaded_by,uploader_department_id',
+                'documents.initialVersion',
             ])
         );
     }

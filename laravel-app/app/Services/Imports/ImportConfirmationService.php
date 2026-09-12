@@ -5,6 +5,7 @@ namespace App\Services\Imports;
 use App\DTOs\Imports\ImportConfirmationResult;
 use App\Enums\AiExtractionRunStatus;
 use App\Enums\DocumentImportStatus;
+use App\Enums\DocumentVersionCreatedVia;
 use App\Exceptions\ApiProblemException;
 use App\Models\AiExtractionRun;
 use App\Models\AuditLog;
@@ -14,6 +15,7 @@ use App\Models\ImportPreviewRevision;
 use App\Models\Project;
 use App\Models\ProjectDocument;
 use App\Models\User;
+use App\Services\Documents\DocumentVersionService;
 use App\Services\Projects\ProjectService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -27,6 +29,7 @@ final class ImportConfirmationService
     public function __construct(
         private readonly ProjectImportPayloadValidator $payloadValidator,
         private readonly ProjectService $projects,
+        private readonly DocumentVersionService $versions,
     ) {}
 
     public function confirm(
@@ -160,6 +163,8 @@ final class ImportConfirmationService
                 'language' => $lockedImport->language,
                 'processed_at' => $run->finished_at ?? now(),
             ]);
+
+            $this->versions->registerInitialVersion($projectDocument, DocumentVersionCreatedVia::PhaseFiveConfirm, $actor);
 
             $lockedImport->update([
                 'status' => DocumentImportStatus::Confirmed,

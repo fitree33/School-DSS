@@ -66,6 +66,9 @@ class ProjectResource extends JsonResource
             ])),
             'documents' => $this->whenLoaded('documents', fn () => $this->documents->map(function (ProjectDocument $document) use ($user): array {
                 $sourceImport = $document->relationLoaded('sourceImport') ? $document->sourceImport : null;
+                $initialVersion = $document->relationLoaded('initialVersion') ? $document->initialVersion : null;
+                $canDownloadVersion = $initialVersion !== null
+                    && $user?->can('download', [$initialVersion, $document, $this->resource]);
 
                 return [
                     'id' => $document->id,
@@ -76,6 +79,15 @@ class ProjectResource extends JsonResource
                     'download_url' => $sourceImport !== null && $user?->can('viewOriginal', $sourceImport)
                         ? route('api.v2.imports.original', $sourceImport, false)
                         : null,
+                    'initial_version' => $canDownloadVersion ? [
+                        'public_id' => $initialVersion->public_id,
+                        'revision_no' => (int) $initialVersion->revision_no,
+                        'download_url' => route('api.v2.projects.documents.versions.download', [
+                            'project' => $this->id,
+                            'projectDocument' => $document->id,
+                            'documentVersion' => $initialVersion->public_id,
+                        ], false),
+                    ] : null,
                 ];
             })),
             'owner' => $this->whenLoaded('owner', fn () => $this->owner ? [

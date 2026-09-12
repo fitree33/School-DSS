@@ -3,10 +3,12 @@
 namespace App\Providers;
 
 use App\Models\DocumentImport;
+use App\Models\DocumentVersion;
 use App\Models\EvaluationFramework;
 use App\Models\Project;
 use App\Models\ProjectEvaluation;
 use App\Policies\DocumentImportPolicy;
+use App\Policies\DocumentVersionPolicy;
 use App\Policies\EvaluationFrameworkPolicy;
 use App\Policies\ProjectEvaluationPolicy;
 use App\Policies\ProjectPolicy;
@@ -22,6 +24,7 @@ class AuthServiceProvider extends ServiceProvider
      */
     protected $policies = [
         DocumentImport::class => DocumentImportPolicy::class,
+        DocumentVersion::class => DocumentVersionPolicy::class,
         EvaluationFramework::class => EvaluationFrameworkPolicy::class,
         Project::class => ProjectPolicy::class,
         ProjectEvaluation::class => ProjectEvaluationPolicy::class,
