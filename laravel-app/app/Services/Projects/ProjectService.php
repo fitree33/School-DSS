@@ -22,6 +22,8 @@ use RuntimeException;
 
 class ProjectService
 {
+    public function __construct(private readonly ProjectSignatureSlotService $signatureSlots) {}
+
     public function create(User $actor, array $attributes): Project
     {
         return DB::transaction(
@@ -56,6 +58,8 @@ class ProjectService
             'project_execution_status_id' => $notStartedStatusId,
             'evaluation_status_id' => $pendingEvaluationId,
         ]));
+
+        $this->signatureSlots->initializeInTransaction($project, $actor);
 
         ProjectAccess::create([
             'project_id' => $project->id,

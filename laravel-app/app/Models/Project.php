@@ -72,6 +72,11 @@ class Project extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function signatureSlots()
+    {
+        return $this->hasMany(ProjectSignatureSlot::class)->orderBy('slot_no');
+    }
+
     public function department()
     {
         return $this->belongsTo(Department::class);

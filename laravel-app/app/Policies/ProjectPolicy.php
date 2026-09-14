@@ -32,6 +32,20 @@ class ProjectPolicy
         return $user->hasPermission('projects.create');
     }
 
+    public function viewSignatures(User $user, Project $project): bool
+    {
+        return $user->is_active === true
+            && ! $user->trashed()
+            && ! $project->trashed()
+            && $this->view($user, $project);
+    }
+
+    public function manageSignatures(User $user, Project $project): bool
+    {
+        return $this->viewSignatures($user, $project)
+            && $user->hasPermission('projects.signatures.manage');
+    }
+
     public function update(User $user, Project $project): bool
     {
         if ($this->isLocked($project)) {

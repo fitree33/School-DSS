@@ -85,5 +85,7 @@ class AuthorizationSeeder extends Seeder
 
         $teacherRole = Role::where('code', 'teacher')->firstOrFail();
         User::whereNull('role_id')->update(['role_id' => $teacherRole->id]);
+
+        $this->call(ProjectSignaturePermissionSeeder::class);
     }
 }

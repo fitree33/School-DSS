@@ -17,6 +17,8 @@ use App\Http\Controllers\Api\V2\ImportPreviewRevisionController;
 use App\Http\Controllers\Api\V2\ProjectController as V2ProjectController;
 use App\Http\Controllers\Api\V2\ProjectEvaluationController;
 use App\Http\Controllers\Api\V2\ProjectOptionsController;
+use App\Http\Controllers\Api\V2\ProjectSignatureCandidateController;
+use App\Http\Controllers\Api\V2\ProjectSignatureSlotController;
 use App\Http\Middleware\VerifyImportCallbackSignature;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -87,6 +89,12 @@ Route::prefix('v2')
                 ->name('fiscal-years.department-budgets.update');
             Route::get('/project-options', ProjectOptionsController::class)
                 ->name('project-options');
+            Route::get('/projects/{project}/signature-slots', [ProjectSignatureSlotController::class, 'index'])
+                ->name('projects.signature-slots.index');
+            Route::get('/projects/{project}/signature-slots/{slotCode}/candidates', ProjectSignatureCandidateController::class)
+                ->name('projects.signature-slots.candidates');
+            Route::put('/projects/{project}/signature-slots/{slotCode}/assignment', [ProjectSignatureSlotController::class, 'updateAssignment'])
+                ->name('projects.signature-slots.assignment.update');
             Route::get(
                 '/projects/{project}/documents/{projectDocument}/versions/{documentVersion:public_id}/download',
                 DocumentVersionDownloadController::class,

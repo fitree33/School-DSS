@@ -10,6 +10,7 @@ use App\Models\ProjectExecutionStatus;
 use App\Models\ProjectExecutionStatusHistory;
 use App\Models\ProjectStatus;
 use App\Models\ProjectStatusHistory;
+use App\Services\Projects\ProjectSignatureSlotService;
 use Database\Seeders\ProjectStatusSeeder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -76,6 +77,8 @@ class ProjectController extends Controller
 
         $project = DB::transaction(function () use ($data, $kpis, $request) {
             $project = Project::create($data);
+
+            app(ProjectSignatureSlotService::class)->initializeInTransaction($project, $request->user(), 'legacy_create');
 
             $this->syncKpis($project, $kpis);
 
