@@ -16,6 +16,7 @@ auth.json
 /laravel-app/storage/app/project-documents/
 /laravel-app/storage/app/uploads/
 /laravel-app/storage/app/private/
+/laravel-app/storage/private/
 /laravel-app/public/storage
 
 # PHP and JavaScript dependencies

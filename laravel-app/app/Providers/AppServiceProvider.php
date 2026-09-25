@@ -5,9 +5,11 @@ namespace App\Providers;
 use App\Contracts\Imports\PdfTextExtractor;
 use App\Contracts\Imports\ProcessRunner;
 use App\Contracts\Imports\ProjectExtractionProvider;
+use App\Contracts\Signatures\SignatureImageNormalizer;
 use App\Services\Imports\N8nProjectExtractionProvider;
 use App\Services\Imports\PopplerPdfTextExtractor;
 use App\Services\Imports\SymfonyProcessRunner;
+use App\Services\Signatures\GdSignatureImageNormalizer;
 use Illuminate\Http\Client\Factory as HttpFactory;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
@@ -22,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(ProcessRunner::class, SymfonyProcessRunner::class);
+        $this->app->singleton(SignatureImageNormalizer::class, GdSignatureImageNormalizer::class);
 
         $this->app->singleton(PdfTextExtractor::class, function ($app): PdfTextExtractor {
             return new PopplerPdfTextExtractor(

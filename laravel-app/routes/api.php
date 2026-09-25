@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\V2\ProjectEvaluationController;
 use App\Http\Controllers\Api\V2\ProjectOptionsController;
 use App\Http\Controllers\Api\V2\ProjectSignatureCandidateController;
 use App\Http\Controllers\Api\V2\ProjectSignatureSlotController;
+use App\Http\Controllers\Api\V2\SignatureAssetController;
 use App\Http\Middleware\VerifyImportCallbackSignature;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -62,6 +63,14 @@ Route::prefix('v2')
             Route::post('/auth/logout', [AuthenticatedSessionController::class, 'destroy'])
                 ->name('auth.logout');
             Route::get('/me', MeController::class)->name('me');
+            Route::get('/signature-assets', [SignatureAssetController::class, 'index'])->name('signature-assets.index');
+            Route::post('/signature-assets', [SignatureAssetController::class, 'store'])->name('signature-assets.store');
+            Route::get('/signature-assets/{asset}', [SignatureAssetController::class, 'show'])
+                ->whereUuid('asset')->name('signature-assets.show');
+            Route::get('/signature-assets/{asset}/preview', [SignatureAssetController::class, 'preview'])
+                ->whereUuid('asset')->name('signature-assets.preview');
+            Route::post('/signature-assets/{asset}/retire', [SignatureAssetController::class, 'retire'])
+                ->whereUuid('asset')->name('signature-assets.retire');
             Route::get('/dashboard', DashboardController::class)->name('dashboard');
             Route::get('/imports/options', DocumentImportOptionsController::class)
                 ->name('imports.options');
