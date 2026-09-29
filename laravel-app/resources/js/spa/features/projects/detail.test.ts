@@ -91,6 +91,14 @@ function downloadBrowser() {
 }
 
 describe('project detail imported evidence', () => {
+    it('links an authorized document version to the PDF placement screen', () => {
+        const item = project();
+        const markup = renderDetail({ ...item, documents: [{ ...item.documents![0], initial_version: { public_id: 'version-uuid', revision_no: 1, download_url: '/api/v2/private/version.pdf' } }] });
+        expect(markup).toContain('href="/projects/71/documents/18/versions/version-uuid/placement"');
+        expect(markup).toContain('เปิด PDF / วางลายเซ็น');
+        expect(renderDetail(item)).not.toContain('/placement');
+    });
+
     it('downloads the exact original through the SPA client from the rendered button and prevents duplicate clicks', async () => {
         const browser = downloadBrowser();
         const bytes = '%PDF-1.4\nOriginal fixture bytes\n%%EOF\n';

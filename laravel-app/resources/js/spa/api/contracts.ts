@@ -97,6 +97,7 @@ export interface ProjectDocument {
     size_bytes: number | null;
     source_import_id: number | null;
     download_url: string | null;
+    initial_version?: { public_id: string; revision_no: number; download_url: string | null } | null;
 }
 
 export interface Project {

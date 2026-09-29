@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\V2\ProjectOptionsController;
 use App\Http\Controllers\Api\V2\ProjectSignatureCandidateController;
 use App\Http\Controllers\Api\V2\ProjectSignatureSlotController;
 use App\Http\Controllers\Api\V2\SignatureAssetController;
+use App\Http\Controllers\Api\V2\SignaturePlacementController;
 use App\Http\Middleware\VerifyImportCallbackSignature;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -110,6 +111,21 @@ Route::prefix('v2')
             )->withoutScopedBindings()
                 ->whereUuid('documentVersion')
                 ->name('projects.documents.versions.download');
+            Route::get(
+                '/projects/{project}/documents/{projectDocument}/versions/{documentVersion:public_id}/placements',
+                [SignaturePlacementController::class, 'index'],
+            )->withoutScopedBindings()->whereUuid('documentVersion')
+                ->name('projects.documents.versions.placements.index');
+            Route::put(
+                '/projects/{project}/documents/{projectDocument}/versions/{documentVersion:public_id}/placements/{projectSignatureSlot}',
+                [SignaturePlacementController::class, 'update'],
+            )->withoutScopedBindings()->whereUuid('documentVersion')->whereNumber('projectSignatureSlot')
+                ->name('projects.documents.versions.placements.update');
+            Route::delete(
+                '/projects/{project}/documents/{projectDocument}/versions/{documentVersion:public_id}/placements/{projectSignatureSlot}',
+                [SignaturePlacementController::class, 'destroy'],
+            )->withoutScopedBindings()->whereUuid('documentVersion')->whereNumber('projectSignatureSlot')
+                ->name('projects.documents.versions.placements.destroy');
             Route::get('/evaluation-options', EvaluationOptionsController::class)
                 ->name('evaluation-options');
             Route::get('/evaluation-projects', [EvaluationProjectController::class, 'index'])

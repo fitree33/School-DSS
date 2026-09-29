@@ -154,9 +154,12 @@ export function ProjectDetailPage() {
                                     <p className="break-words text-sm font-semibold text-slate-900">{document.original_name}</p>
                                     {document.source_import_id !== null && <p className="mt-1 text-xs text-slate-500">เอกสารต้นฉบับจากการนำเข้า</p>}
                                 </div>
-                                {document.download_url ? (
-                                    <OriginalDocumentDownloadButton filename={document.original_name} url={document.download_url} />
-                                ) : <p className="text-sm text-slate-500">เอกสารนี้ยังไม่พร้อมให้เปิดหรือไม่มีสิทธิ์เข้าถึงไฟล์</p>}
+                                <div className="flex flex-wrap gap-2">
+                                    {document.initial_version?.download_url && <Link className="spa-button-primary" to={`/projects/${project.id}/documents/${document.id}/versions/${document.initial_version.public_id}/placement`}>เปิด PDF / วางลายเซ็น</Link>}
+                                    {document.download_url ? (
+                                        <OriginalDocumentDownloadButton filename={document.original_name} url={document.download_url} />
+                                    ) : <p className="text-sm text-slate-500">เอกสารนี้ยังไม่พร้อมให้เปิดหรือไม่มีสิทธิ์เข้าถึงไฟล์</p>}
+                                </div>
                             </li>
                         ))}
                     </ul>

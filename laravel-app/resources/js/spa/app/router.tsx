@@ -16,6 +16,7 @@ import { ImportUploadPage } from '@/features/imports/ImportUploadPage';
 import { ProjectDetailPage } from '@/features/projects/ProjectDetailPage';
 import { ProjectFormPage } from '@/features/projects/ProjectFormPage';
 import { ProjectListPage } from '@/features/projects/ProjectListPage';
+import { SignaturePlacementPage } from '@/features/signatures/SignaturePlacementPage';
 import { AppLayout } from '@/layouts/AppLayout';
 import { ForbiddenPage } from '@/pages/ForbiddenPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
@@ -41,6 +42,7 @@ export const router = createBrowserRouter(
                 { path: '/imports/:importId/preview', element: <ImportPreviewPage /> },
                 { path: '/projects', element: <ProjectListPage /> },
                 { path: '/projects/:projectId', element: <ProjectDetailPage /> },
+                { path: '/projects/:projectId/documents/:documentId/versions/:versionId/placement', element: <SignaturePlacementPage /> },
                 { path: '/projects/:projectId/edit', element: <ProjectFormPage mode="edit" /> },
                 {
                     path: '/projects/new',
