@@ -12,6 +12,7 @@ import { dashboardKeys } from '@/features/dashboard/api';
 import { formatEvaluationPercentage, formatScore } from '@/features/evaluations/score';
 import { deleteProject, fetchProject, projectKeys } from '@/features/projects/api';
 import { formatCurrency, formatDate, projectBudgetView, yearLabel } from '@/features/projects/format';
+import { placementPath } from '@/features/signatures/signing';
 
 export function ProjectDetailPage() {
     const { projectId = '' } = useParams();
@@ -148,20 +149,23 @@ export function ProjectDetailPage() {
                 <h2 className="font-bold text-slate-950" id="project-documents-heading">เอกสารโครงการ / เอกสารต้นฉบับ</h2>
                 {project.documents?.length ? (
                     <ul className="mt-5 divide-y divide-slate-100">
-                        {project.documents.map((document) => (
+                        {project.documents.map((document) => {
+                            const version = document.current_version ?? document.initial_version;
+                            return (
                             <li className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between" key={document.id}>
                                 <div className="min-w-0">
                                     <p className="break-words text-sm font-semibold text-slate-900">{document.original_name}</p>
                                     {document.source_import_id !== null && <p className="mt-1 text-xs text-slate-500">เอกสารต้นฉบับจากการนำเข้า</p>}
                                 </div>
                                 <div className="flex flex-wrap gap-2">
-                                    {document.initial_version?.download_url && <Link className="spa-button-primary" to={`/projects/${project.id}/documents/${document.id}/versions/${document.initial_version.public_id}/placement`}>เปิด PDF / วางลายเซ็น</Link>}
+                                    {version?.download_url && <Link className="spa-button-primary" to={placementPath({ projectId: String(project.id), documentId: String(document.id), versionId: version.public_id })}>เปิด PDF / วางลายเซ็น · ฉบับที่ {version.revision_no}</Link>}
                                     {document.download_url ? (
                                         <OriginalDocumentDownloadButton filename={document.original_name} url={document.download_url} />
                                     ) : <p className="text-sm text-slate-500">เอกสารนี้ยังไม่พร้อมให้เปิดหรือไม่มีสิทธิ์เข้าถึงไฟล์</p>}
                                 </div>
                             </li>
-                        ))}
+                            );
+                        })}
                     </ul>
                 ) : <p className="mt-3 text-sm text-slate-500">ยังไม่มีเอกสารสำหรับโครงการนี้</p>}
             </section>

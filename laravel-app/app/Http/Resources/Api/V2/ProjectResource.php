@@ -69,6 +69,9 @@ class ProjectResource extends JsonResource
                 $initialVersion = $document->relationLoaded('initialVersion') ? $document->initialVersion : null;
                 $canDownloadVersion = $initialVersion !== null
                     && $user?->can('download', [$initialVersion, $document, $this->resource]);
+                $currentVersion = $document->relationLoaded('latestVersion') ? $document->latestVersion : null;
+                $canDownloadCurrentVersion = $currentVersion !== null
+                    && $user?->can('download', [$currentVersion, $document, $this->resource]);
 
                 return [
                     'id' => $document->id,
@@ -86,6 +89,15 @@ class ProjectResource extends JsonResource
                             'project' => $this->id,
                             'projectDocument' => $document->id,
                             'documentVersion' => $initialVersion->public_id,
+                        ], false),
+                    ] : null,
+                    'current_version' => $canDownloadCurrentVersion ? [
+                        'public_id' => $currentVersion->public_id,
+                        'revision_no' => (int) $currentVersion->revision_no,
+                        'download_url' => route('api.v2.projects.documents.versions.download', [
+                            'project' => $this->id,
+                            'projectDocument' => $document->id,
+                            'documentVersion' => $currentVersion->public_id,
                         ], false),
                     ] : null,
                 ];

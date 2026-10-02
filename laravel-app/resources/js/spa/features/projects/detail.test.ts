@@ -99,6 +99,19 @@ describe('project detail imported evidence', () => {
         expect(renderDetail(item)).not.toContain('/placement');
     });
 
+    it('opens the current signed version while retaining the original download', () => {
+        const item = project();
+        const markup = renderDetail({ ...item, documents: [{
+            ...item.documents![0],
+            initial_version: { public_id: 'initial-version', revision_no: 1, download_url: '/api/v2/private/original.pdf' },
+            current_version: { public_id: 'signed-version', revision_no: 2, download_url: '/api/v2/private/signed.pdf' },
+        }] });
+        expect(markup).toContain('href="/projects/71/documents/18/versions/signed-version/placement"');
+        expect(markup).not.toContain('/versions/initial-version/placement');
+        expect(markup).toContain('ฉบับที่ 2');
+        expect(markup).toContain('เปิด / ดาวน์โหลด');
+    });
+
     it('downloads the exact original through the SPA client from the rendered button and prevents duplicate clicks', async () => {
         const browser = downloadBrowser();
         const bytes = '%PDF-1.4\nOriginal fixture bytes\n%%EOF\n';

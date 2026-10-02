@@ -126,11 +126,19 @@ class DocumentBlobVerifier
                 $this->fail('document_version_storage_invalid');
             }
             $this->assertNotPublic($resolved);
-            // Broad local root may contain the private import root; never grant an alias.
-            $importRoot = config('filesystems.disks.project-imports.root');
-            if ($diskName !== 'project-imports' && is_string($importRoot) && ($realImportRoot = realpath($importRoot)) !== false
-                && $this->within($resolved, $realImportRoot)) {
-                $this->fail('document_version_storage_invalid');
+            if ($diskName === config('document_signing.storage_disk', 'signed-documents')) {
+                $privacy = app(DocumentPrivateFilesystem::class);
+                $privacy->assertCanonicalPath($root);
+                $privacy->assertPrivateDirectory($root);
+                $privacy->assertPrivateFile($resolved);
+            }
+            // Broad local roots must not alias the dedicated import/generated namespaces.
+            foreach (array_unique(['project-imports', (string) config('document_signing.storage_disk', 'signed-documents')]) as $dedicatedDisk) {
+                $dedicatedRoot = config("filesystems.disks.{$dedicatedDisk}.root");
+                if ($diskName !== $dedicatedDisk && is_string($dedicatedRoot)
+                    && ($realDedicatedRoot = realpath($dedicatedRoot)) !== false && $this->within($resolved, $realDedicatedRoot)) {
+                    $this->fail('document_version_storage_invalid');
+                }
             }
 
             return $resolved;
@@ -283,13 +291,13 @@ class DocumentBlobVerifier
         if (! is_string($directory) || $directory === '') {
             $this->fail('document_version_download_unavailable', 503);
         }
+        $directory = rtrim($directory, '/\\');
         // Check exposure before creating anything, including a configured public path.
         $this->assertNotPublic($directory);
-        if (! is_dir($directory) && ! @mkdir($directory, 0700, true) && ! is_dir($directory)) {
-            $this->fail('document_version_download_unavailable', 503);
-        }
+        $filesystem = app(DocumentPrivateFilesystem::class);
+        $filesystem->prepareDirectory($directory);
         $resolved = realpath($directory);
-        if ($resolved === false || $this->normalize($resolved) !== $this->normalize($directory) || ! @chmod($resolved, 0700)) {
+        if ($resolved === false || $this->normalize($resolved) !== $this->normalize($directory)) {
             $this->fail('document_version_download_unavailable', 503);
         }
         $this->assertNotPublic($resolved);
@@ -298,10 +306,15 @@ class DocumentBlobVerifier
         if (! is_resource($handle)) {
             $this->fail('document_version_download_unavailable', 503);
         }
-        if (! @chmod($path, 0600)) {
+        try {
+            if (! @chmod($path, 0600)) {
+                throw new \RuntimeException('Private snapshot creation failed.');
+            }
+            $filesystem->assertPrivateFile($path);
+        } catch (Throwable $exception) {
             fclose($handle);
             @unlink($path);
-            $this->fail('document_version_download_unavailable', 503);
+            throw $exception;
         }
 
         return [$path, $handle];

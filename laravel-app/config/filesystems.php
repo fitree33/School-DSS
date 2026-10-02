@@ -36,6 +36,13 @@ return [
             'throw' => false,
         ],
 
+        'signed-documents' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/signed-documents'),
+            'visibility' => 'private',
+            'throw' => true,
+        ],
+
         'project-imports' => [
             'driver' => 'local',
             'root' => storage_path('app/private/project-imports'),

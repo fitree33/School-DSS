@@ -15,10 +15,12 @@ use RuntimeException;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
+use Tests\Feature\Concerns\UsesPrivateSignatureStorage;
 use Throwable;
 
 class DocumentPdfPageCounterTest extends TestCase
 {
+    use UsesPrivateSignatureStorage;
     private const PDF = "%PDF-1.4\nVerified page count source\n%%EOF\n";
 
     protected function setUp(): void
@@ -26,6 +28,7 @@ class DocumentPdfPageCounterTest extends TestCase
         parent::setUp();
         Storage::fake('local');
         Storage::fake('page-counter-temporary');
+        $this->protectSignatureFixtureDirectory(rtrim(Storage::disk('page-counter-temporary')->path(''), '/\\'));
         config()->set('document_versions.allowed_disks', ['local']);
         config()->set('document_versions.temporary_directory', Storage::disk('page-counter-temporary')->path(''));
         config()->set('project_imports.pdf.pdfinfo_binary', 'fixture-pdfinfo');

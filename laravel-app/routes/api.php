@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V2\ConfirmDocumentImportController;
 use App\Http\Controllers\Api\V2\DashboardController;
 use App\Http\Controllers\Api\V2\DocumentImportController;
 use App\Http\Controllers\Api\V2\DocumentImportOptionsController;
+use App\Http\Controllers\Api\V2\DocumentSignatureController;
 use App\Http\Controllers\Api\V2\DocumentVersionDownloadController;
 use App\Http\Controllers\Api\V2\EvaluationFrameworkController;
 use App\Http\Controllers\Api\V2\EvaluationOptionsController;
@@ -126,6 +127,11 @@ Route::prefix('v2')
                 [SignaturePlacementController::class, 'destroy'],
             )->withoutScopedBindings()->whereUuid('documentVersion')->whereNumber('projectSignatureSlot')
                 ->name('projects.documents.versions.placements.destroy');
+            Route::post(
+                '/projects/{project}/documents/{projectDocument}/versions/{documentVersion:public_id}/signatures/{projectSignatureSlot}',
+                DocumentSignatureController::class,
+            )->withoutScopedBindings()->whereUuid('documentVersion')->whereNumber('projectSignatureSlot')
+                ->name('projects.documents.versions.signatures.store');
             Route::get('/evaluation-options', EvaluationOptionsController::class)
                 ->name('evaluation-options');
             Route::get('/evaluation-projects', [EvaluationProjectController::class, 'index'])

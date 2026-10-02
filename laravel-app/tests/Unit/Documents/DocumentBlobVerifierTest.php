@@ -11,15 +11,19 @@ use Illuminate\Support\Facades\Storage;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
+use Tests\Feature\Concerns\UsesPrivateSignatureStorage;
 
 class DocumentBlobVerifierTest extends TestCase
 {
+    use UsesPrivateSignatureStorage;
     protected function setUp(): void
     {
         parent::setUp();
         Storage::fake('local');
         Storage::fake('version-private-temp');
         config()->set('document_versions.temporary_directory', Storage::disk('version-private-temp')->path('downloads'));
+        mkdir(config('document_versions.temporary_directory'), 0700);
+        $this->protectSignatureFixtureDirectory(config('document_versions.temporary_directory'));
     }
 
     public function test_large_download_is_verified_with_bounded_memory_and_reliable_cleanup(): void
@@ -91,6 +95,21 @@ class DocumentBlobVerifierTest extends TestCase
             $this->assertSame(503, $exception->status);
         }
         $this->assertSame('original', Storage::disk('local')->get('source.txt'));
+    }
+
+    public function test_public_temporary_root_is_rejected_before_creation_or_copying_source(): void
+    {
+        $version = $this->version('private original');
+        $directory = public_path('download-snapshot-'.bin2hex(random_bytes(12)));
+        config()->set('document_versions.temporary_directory', $directory);
+        try {
+            app(DocumentBlobVerifier::class)->verifyVersionToTemporaryFile($version);
+            $this->fail('Public download snapshots were accepted.');
+        } catch (ApiProblemException $exception) {
+            $this->assertSame('document_version_storage_invalid', $exception->errorCode);
+        }
+        $this->assertDirectoryDoesNotExist($directory);
+        $this->assertSame('private original', Storage::disk('local')->get('source.txt'));
     }
 
     #[DataProvider('unsafePaths')]

@@ -27,12 +27,14 @@ use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Feature\Concerns\BuildsProjectSignatureSlots;
 use Tests\Feature\Concerns\BuildsSignatureAssetRows;
 use Tests\TestCase;
+use Tests\Feature\Concerns\UsesPrivateSignatureStorage;
 
 class SignaturePlacementApiTest extends TestCase
 {
     use BuildsProjectSignatureSlots;
     use BuildsSignatureAssetRows;
     use RefreshDatabase;
+    use UsesPrivateSignatureStorage;
 
     private const PDF = "%PDF-1.4\nPlacement source fixture\n%%EOF\n";
 
@@ -42,6 +44,7 @@ class SignaturePlacementApiTest extends TestCase
         $this->setUpProjectSignatures();
         Storage::fake('placement-source');
         Storage::fake('placement-temporary');
+        $this->protectSignatureFixtureDirectory(rtrim(Storage::disk('placement-temporary')->path(''), '/\\'));
         config()->set('filesystems.disks.placement-source', [
             'driver' => 'local',
             'root' => Storage::disk('placement-source')->path(''),
@@ -94,7 +97,7 @@ class SignaturePlacementApiTest extends TestCase
         $this->deleteJson($url.'/'.$slot->id)->assertSuccessful();
         $this->getJson($url)->assertOk()->assertJsonPath('data.slots.0.placement', null);
         $this->assertDatabaseCount('signature_placements', 0);
-        $this->assertFalse(Schema::hasTable('document_signatures'));
+        $this->assertDatabaseCount('document_signatures', 0);
         $this->assertSame($beforeVersions, DocumentVersion::query()->get()->map->getRawOriginal()->all());
         $this->assertSame($beforeAudits, AuditLog::query()->get()->map->getRawOriginal()->all());
         $this->assertSame(self::PDF, Storage::disk('placement-source')->get($version->storage_path));
@@ -260,7 +263,7 @@ class SignaturePlacementApiTest extends TestCase
             ->assertJsonPath('data.stale', false);
         $this->assertDatabaseCount('signature_placements', 1);
         $this->assertDatabaseCount('document_versions', 1);
-        $this->assertFalse(Schema::hasTable('document_signatures'));
+        $this->assertDatabaseCount('document_signatures', 0);
         $oldContext = $this->actingAs($owner)->getJson($url)->assertOk()
             ->assertJsonPath('data.slots.0.placement', null);
         $this->assertStringNotContainsString($newAsset->public_id, $oldContext->getContent());

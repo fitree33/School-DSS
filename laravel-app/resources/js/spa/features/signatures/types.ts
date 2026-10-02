@@ -15,6 +15,7 @@ export interface SignaturePlacement extends NormalizedPlacement {
     assignment_revision: number;
     updated_at: string | null;
     stale: boolean;
+    fingerprint?: string;
 }
 
 export interface PlacementSlot {
@@ -40,9 +41,35 @@ export interface SignatureAsset {
 
 export interface PlacementContext {
     document: { id: number; original_name: string };
-    version: { public_id: string; revision_no: number; download_url: string; page_count: number | null };
+    version: DocumentVersionSummary & { page_count: number | null; is_current?: boolean };
+    current_version?: DocumentVersionSummary;
     slots: PlacementSlot[];
     assets: SignatureAsset[];
+}
+
+export interface DocumentVersionSummary {
+    public_id: string;
+    revision_no: number;
+    download_url: string;
+}
+
+export interface SigningSnapshot {
+    assignment_revision: number;
+    placement_fingerprint: string;
+}
+
+export interface SignDocumentPayload extends SigningSnapshot {
+    idempotency_key: string;
+}
+
+export interface DocumentSignature {
+    public_id: string;
+    source_version_id: string;
+    signed_version: DocumentVersionSummary;
+    signature_slot_id: number;
+    signed_at: string;
+    before_sha256: string;
+    after_sha256: string;
 }
 
 export interface PlacementRoute {

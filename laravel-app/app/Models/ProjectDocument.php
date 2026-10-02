@@ -118,6 +118,11 @@ class ProjectDocument extends Model
         return $this->hasOne(DocumentVersion::class)->where('revision_no', 1);
     }
 
+    public function latestVersion(): HasOne
+    {
+        return $this->hasOne(DocumentVersion::class)->ofMany('revision_no', 'max');
+    }
+
     public function isImportedOriginal(): bool
     {
         return $this->source_import_id !== null;

@@ -24,6 +24,7 @@ final class SignaturePlacementController extends Controller
     public function index(Request $request, Project $project, ProjectDocument $projectDocument, DocumentVersion $documentVersion): JsonResponse
     {
         $context = $this->placements->context($request->user(), $project, $projectDocument, $documentVersion);
+        $current = $projectDocument->latestVersion()->firstOrFail();
         $slots = $context['slots']->map(function (ProjectSignatureSlot $slot) use ($request, $project, $projectDocument, $documentVersion, $context): array {
             $placement = $context['placements']->get($slot->id);
 
@@ -45,6 +46,15 @@ final class SignaturePlacementController extends Controller
                     'documentVersion' => $documentVersion->public_id,
                 ], false),
                 'page_count' => $context['page_count'],
+                'is_current' => (int) $current->id === (int) $documentVersion->id,
+            ],
+            'current_version' => [
+                'public_id' => $current->public_id,
+                'revision_no' => $current->revision_no,
+                'download_url' => route('api.v2.projects.documents.versions.download', [
+                    'project' => $project->id, 'projectDocument' => $projectDocument->id,
+                    'documentVersion' => $current->public_id,
+                ], false),
             ],
             'slots' => $slots,
             'assets' => SignatureAssetResource::collection($context['assets'])->resolve($request),

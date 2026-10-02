@@ -92,6 +92,7 @@ class ProjectController extends Controller
                 'kpis',
                 'documents.sourceImport:id,public_id,uploaded_by,uploader_department_id',
                 'documents.initialVersion',
+                'documents.latestVersion',
             ])
         );
     }

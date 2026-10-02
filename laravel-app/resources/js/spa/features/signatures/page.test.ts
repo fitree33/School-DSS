@@ -4,16 +4,19 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { apiClient } from '@/api/client';
+import { ApiError, apiClient } from '@/api/client';
+import { projectKeys } from '@/features/projects/api';
 import { placementKeys } from '@/features/signatures/api';
 import * as placement from '@/features/signatures/placement';
-import { PlacementSelectors, SignaturePlacementPage } from '@/features/signatures/SignaturePlacementPage';
-import type { PlacementContext, SignaturePlacement } from '@/features/signatures/types';
+import { PlacementError, PlacementSelectors, SignDocumentButton, SignaturePlacementPage } from '@/features/signatures/SignaturePlacementPage';
+import type { DocumentSignature, PlacementContext, SignaturePlacement } from '@/features/signatures/types';
 
 const rendered = vi.hoisted(() => ({
     selects: [] as Array<{ value: number | string; onChange: (event: { target: { value: string } }) => void }>,
     save: null as null | { disabled: boolean; onClick: () => void },
     reset: null as null | { disabled: boolean; onClick: () => void },
+    sign: null as null | { disabled: boolean; onClick: () => void },
+    navigate: vi.fn(),
     viewer: null as null | { url: string; page: number; placement: SignaturePlacement | null; onPlace?: (point: { x: number; y: number }, size: { width: number; height: number }) => void },
 }));
 vi.mock('react/jsx-runtime', async (importOriginal) => {
@@ -22,6 +25,7 @@ vi.mock('react/jsx-runtime', async (importOriginal) => {
         if (type === 'select') rendered.selects.push(props as typeof rendered.selects[number]);
         if (type === 'button' && (props as { children: unknown }).children === 'บันทึกตำแหน่ง') rendered.save = props as typeof rendered.save;
         if (type === 'button' && (props as { children: unknown }).children === 'ลบตำแหน่งที่บันทึก') rendered.reset = props as typeof rendered.reset;
+        if (type === 'button' && (props as { 'data-action'?: string })['data-action'] === 'sign-document') rendered.sign = props as typeof rendered.sign;
     };
     const jsx: typeof runtime.jsx = (type, props, key) => { capture(type, props); return runtime.jsx(type, props, key); };
     const jsxs: typeof runtime.jsxs = (type, props, key) => { capture(type, props); return runtime.jsxs(type, props, key); };
@@ -33,17 +37,19 @@ vi.mock('react/jsx-dev-runtime', async (importOriginal) => {
         if (type === 'select') rendered.selects.push(props as typeof rendered.selects[number]);
         if (type === 'button' && (props as { children: unknown }).children === 'บันทึกตำแหน่ง') rendered.save = props as typeof rendered.save;
         if (type === 'button' && (props as { children: unknown }).children === 'ลบตำแหน่งที่บันทึก') rendered.reset = props as typeof rendered.reset;
+        if (type === 'button' && (props as { 'data-action'?: string })['data-action'] === 'sign-document') rendered.sign = props as typeof rendered.sign;
         return runtime.jsxDEV(type, props, key, isStaticChildren, source, self);
     };
     return { ...runtime, jsxDEV };
 });
 vi.mock('@/features/signatures/PdfViewer', () => ({ PdfViewer: (props: typeof rendered.viewer) => { rendered.viewer = props; return 'Mock PDF viewer'; } }));
+vi.mock('react-router-dom', async (importOriginal) => ({ ...await importOriginal<typeof import('react-router-dom')>(), useNavigate: () => rendered.navigate }));
 
 const route = { projectId: '71', documentId: '18', versionId: 'version-uuid' };
-const saved: SignaturePlacement = { id: 10, signature_slot_id: 1, signature_asset_id: 'owned-active', assignment_revision: 3, page: 2, x: 0.2, y: 0.3, width: 0.25, height: 0.1, updated_at: null, stale: false };
+const saved: SignaturePlacement = { id: 10, signature_slot_id: 1, signature_asset_id: 'owned-active', assignment_revision: 3, page: 2, x: 0.2, y: 0.3, width: 0.25, height: 0.1, updated_at: null, stale: false, fingerprint: 'a'.repeat(64) };
 const context = (): PlacementContext => ({
     document: { id: 18, original_name: 'project.pdf' },
-    version: { public_id: route.versionId, revision_no: 1, download_url: '/api/v2/private/version.pdf', page_count: 3 },
+    version: { public_id: route.versionId, revision_no: 1, download_url: '/api/v2/private/version.pdf', page_count: 3, is_current: true },
     slots: [
         { id: 1, slot_code: 'project_proposer', slot_no: 1, assigned_user_id: 7, assignment_revision: 3, assignee_status: 'eligible', assignee: { id: 7, name: 'Teacher' }, can_sign: true, placement: saved },
         { id: 2, slot_code: 'related_approver', slot_no: 2, assigned_user_id: 8, assignment_revision: 1, assignee_status: 'eligible', assignee: { id: 8, name: 'Approver' }, can_sign: false, placement: null },
@@ -54,12 +60,12 @@ const context = (): PlacementContext => ({
 });
 const clients: QueryClient[] = [];
 
-function renderPage(data: PlacementContext) {
+function renderPage(data: PlacementContext, state?: { signedVersionId: string }) {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
     clients.push(client);
     client.setQueryData(placementKeys.context(route), data);
     const markup = renderToStaticMarkup(createElement(QueryClientProvider, { client },
-        createElement(MemoryRouter, { initialEntries: ['/projects/71/documents/18/versions/version-uuid/placement'] },
+        createElement(MemoryRouter, { initialEntries: [{ pathname: '/projects/71/documents/18/versions/version-uuid/placement', state }] },
             createElement(Routes, null, createElement(Route, {
                 path: '/projects/:projectId/documents/:documentId/versions/:versionId/placement', element: createElement(SignaturePlacementPage),
             })),
@@ -68,8 +74,8 @@ function renderPage(data: PlacementContext) {
     return { client, markup };
 }
 
-beforeEach(() => { rendered.selects = []; rendered.save = null; rendered.reset = null; rendered.viewer = null; });
-afterEach(() => { clients.splice(0).forEach((client) => client.clear()); vi.restoreAllMocks(); });
+beforeEach(() => { rendered.selects = []; rendered.save = null; rendered.reset = null; rendered.sign = null; rendered.viewer = null; rendered.navigate.mockReset(); });
+afterEach(() => { clients.splice(0).forEach((client) => client.clear()); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('signature placement screen', () => {
     it('shows all four slots, disables unassigned or foreign slots and filters retired assets', () => {
@@ -134,12 +140,14 @@ describe('signature placement screen', () => {
     it('saves through the real rendered action and updates the cached draft', async () => {
         const updated = { ...saved, id: 11, updated_at: '2026-09-27T12:00:00Z' };
         const put = vi.spyOn(apiClient, 'put').mockResolvedValue({ data: { data: updated } });
+        const post = vi.spyOn(apiClient, 'post');
         const { client } = renderPage(context());
         rendered.save!.onClick();
         await vi.waitFor(() => expect(client.getQueryData<PlacementContext>(placementKeys.context(route))?.slots[0].placement?.id).toBe(11));
         expect(put).toHaveBeenCalledExactlyOnceWith('/api/v2/projects/71/documents/18/versions/version-uuid/placements/1', {
             signature_asset_id: 'owned-active', assignment_revision: 3, page: 2, x: 0.2, y: 0.3, width: 0.25, height: 0.1,
         });
+        expect(post).not.toHaveBeenCalled();
     });
 
     it('resets through the rendered action and clears only the selected slot in the cache', async () => {
@@ -180,5 +188,182 @@ describe('signature placement screen', () => {
         expect(markup).toContain('ตำแหน่งเดิมใช้ไม่ได้แล้ว');
         expect(rendered.viewer?.placement).toBeNull();
         expect(rendered.save?.disabled).toBe(true);
+    });
+});
+
+describe('explicit document signing screen', () => {
+    const signature: DocumentSignature = {
+        public_id: 'signature-uuid', source_version_id: route.versionId, signature_slot_id: 1,
+        signed_version: { public_id: 'signed-version', revision_no: 2, download_url: '/api/v2/private/signed.pdf' },
+        signed_at: '2026-09-30T12:00:00Z', before_sha256: 'b'.repeat(64), after_sha256: 'c'.repeat(64),
+    };
+
+    it('requires explicit confirmation and does not sign when confirmation is canceled', () => {
+        const confirm = vi.fn(() => false);
+        vi.stubGlobal('window', { confirm });
+        const post = vi.spyOn(apiClient, 'post');
+        renderPage(context());
+        expect(rendered.sign?.disabled).toBe(false);
+        rendered.sign!.onClick();
+        expect(confirm).toHaveBeenCalledOnce();
+        expect(confirm.mock.calls[0]).toEqual([expect.stringContaining('ฉบับที่ 1')]);
+        expect(confirm.mock.calls[0]).toEqual([expect.stringContaining('หน้า 2')]);
+        expect(post).not.toHaveBeenCalled();
+    });
+
+    it('signs once, blocks competing actions, updates the source cache and opens the signed version', async () => {
+        vi.stubGlobal('window', { confirm: vi.fn(() => true) });
+        const post = vi.spyOn(apiClient, 'post').mockResolvedValue({ data: { data: signature } });
+        const put = vi.spyOn(apiClient, 'put');
+        const remove = vi.spyOn(apiClient, 'delete');
+        const { client } = renderPage(context());
+        const invalidate = vi.spyOn(client, 'invalidateQueries');
+        rendered.sign!.onClick();
+        rendered.sign!.onClick();
+        rendered.save!.onClick();
+        rendered.reset!.onClick();
+        await vi.waitFor(() => expect(rendered.navigate).toHaveBeenCalledOnce());
+        expect(post).toHaveBeenCalledExactlyOnceWith('/api/v2/projects/71/documents/18/versions/version-uuid/signatures/1', {
+            assignment_revision: 3, placement_fingerprint: saved.fingerprint, idempotency_key: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        });
+        expect(put).not.toHaveBeenCalled();
+        expect(remove).not.toHaveBeenCalled();
+        expect(client.getQueryData<PlacementContext>(placementKeys.context(route))).toMatchObject({ version: { is_current: false }, current_version: signature.signed_version });
+        expect(invalidate).toHaveBeenCalledWith({ queryKey: projectKeys.detail('71') });
+        expect(rendered.navigate).toHaveBeenCalledWith('/projects/71/documents/18/versions/signed-version/placement', { replace: true, state: { signedVersionId: 'signed-version' } });
+        rendered.sign!.onClick();
+        expect(post).toHaveBeenCalledOnce();
+    });
+
+    it('reuses the same idempotency key for an explicit retry after a lost response', async () => {
+        vi.stubGlobal('window', { confirm: vi.fn(() => true) });
+        const failure = new ApiError('Connection lost');
+        const post = vi.spyOn(apiClient, 'post').mockRejectedValueOnce(failure).mockResolvedValueOnce({ data: { data: signature } });
+        const { client } = renderPage(context());
+        rendered.sign!.onClick();
+        await vi.waitFor(() => expect(client.getMutationCache().getAll()[0].state.error).toBe(failure));
+        expect(post).toHaveBeenCalledOnce();
+        expect(rendered.navigate).not.toHaveBeenCalled();
+        expect(client.getQueryData<PlacementContext>(placementKeys.context(route))?.slots[0].placement).toEqual(saved);
+        rendered.sign!.onClick();
+        await vi.waitFor(() => expect(rendered.navigate).toHaveBeenCalledOnce());
+        expect(post).toHaveBeenCalledTimes(2);
+        expect(post.mock.calls[1][1]).toEqual(post.mock.calls[0][1]);
+    });
+
+    it('keeps signing pending until the response arrives and blocks edits throughout generation', async () => {
+        const confirm = vi.fn(() => true);
+        vi.stubGlobal('window', { confirm });
+        let finish!: (value: { data: { data: DocumentSignature } }) => void;
+        const post = vi.spyOn(apiClient, 'post').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+        const put = vi.spyOn(apiClient, 'put');
+        const remove = vi.spyOn(apiClient, 'delete');
+        const restore = vi.spyOn(placement, 'restorePlacementDraft');
+        const move = vi.spyOn(placement, 'createClickPlacement');
+        const data = context();
+        data.slots[1] = { ...data.slots[1], can_sign: true, assigned_user_id: 7 };
+        const { client } = renderPage(data);
+        restore.mockClear();
+        rendered.sign!.onClick();
+        await vi.waitFor(() => expect(post).toHaveBeenCalledOnce());
+        expect(client.getMutationCache().getAll()[0].state.status).toBe('pending');
+        expect(rendered.navigate).not.toHaveBeenCalled();
+        expect(client.getQueryData<PlacementContext>(placementKeys.context(route))).toEqual(data);
+
+        rendered.sign!.onClick();
+        rendered.save!.onClick();
+        rendered.reset!.onClick();
+        rendered.selects[0].onChange({ target: { value: '2' } });
+        rendered.viewer!.onPlace!({ x: 0.6, y: 0.7 }, { width: 800, height: 600 });
+        expect(confirm).toHaveBeenCalledOnce();
+        expect(post).toHaveBeenCalledOnce();
+        expect(put).not.toHaveBeenCalled();
+        expect(remove).not.toHaveBeenCalled();
+        expect(restore).not.toHaveBeenCalled();
+        expect(move).not.toHaveBeenCalled();
+
+        finish({ data: { data: signature } });
+        await vi.waitFor(() => expect(rendered.navigate).toHaveBeenCalledOnce());
+    });
+
+    it('does not confirm or sign while Save Placement is still pending', async () => {
+        const confirm = vi.fn(() => true);
+        vi.stubGlobal('window', { confirm });
+        let finish!: (value: { data: { data: SignaturePlacement } }) => void;
+        const put = vi.spyOn(apiClient, 'put').mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+        const post = vi.spyOn(apiClient, 'post');
+        const { client } = renderPage(context());
+        rendered.save!.onClick();
+        await vi.waitFor(() => expect(put).toHaveBeenCalledOnce());
+        rendered.sign!.onClick();
+        expect(confirm).not.toHaveBeenCalled();
+        expect(post).not.toHaveBeenCalled();
+        finish({ data: { data: saved } });
+        await vi.waitFor(() => expect(client.getMutationCache().getAll()[0].state.status).toBe('success'));
+        expect(post).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ['signature_assignment_changed', 409], ['signature_placement_changed', 409], ['document_already_signed', 409],
+        ['forbidden', 403], ['signature_asset_ineligible', 409], ['document_signing_generation_failed', 503],
+    ] as const)('preserves draft and source when the server rejects %s', async (code, status) => {
+        vi.stubGlobal('window', { confirm: vi.fn(() => true) });
+        const failure = new ApiError('Reload the current document', status, code);
+        const post = vi.spyOn(apiClient, 'post').mockRejectedValue(failure);
+        const { client } = renderPage(context());
+        rendered.sign!.onClick();
+        await vi.waitFor(() => expect(client.getMutationCache().getAll()[0].state.error).toBe(failure));
+        expect(post).toHaveBeenCalledOnce();
+        expect(rendered.navigate).not.toHaveBeenCalled();
+        expect(client.getQueryData<PlacementContext>(placementKeys.context(route))).toEqual(context());
+    });
+
+    it('disables signing old versions and offers the current version', () => {
+        const data = context();
+        data.version.is_current = false;
+        data.current_version = signature.signed_version;
+        const { markup } = renderPage(data);
+        expect(rendered.sign?.disabled).toBe(true);
+        expect(markup).toContain('href="/projects/71/documents/18/versions/signed-version/placement"');
+        const post = vi.spyOn(apiClient, 'post');
+        rendered.sign!.onClick();
+        expect(post).not.toHaveBeenCalled();
+    });
+
+    it('requires a saved current placement belonging to an eligible assigned slot', () => {
+        const data = context();
+        data.slots[0].placement = null;
+        renderPage(data);
+        expect(rendered.sign?.disabled).toBe(true);
+        data.slots[0].placement = { ...saved, stale: true };
+        renderPage(data);
+        expect(rendered.sign?.disabled).toBe(true);
+        data.slots[0] = { ...data.slots[0], placement: saved, can_sign: false };
+        renderPage(data);
+        expect(rendered.sign?.disabled).toBe(true);
+    });
+
+    it('renders signing progress and rejects an ineligible or busy action', () => {
+        const onSign = vi.fn();
+        const markup = renderToStaticMarkup(createElement(SignDocumentButton, { eligible: true, busy: true, signing: true, onSign }));
+        expect(markup).toContain('กำลังลงนาม…');
+        expect(rendered.sign?.disabled).toBe(true);
+        renderToStaticMarkup(createElement(SignDocumentButton, { eligible: false, busy: false, signing: false, onSign }));
+        expect(rendered.sign?.disabled).toBe(true);
+    });
+
+    it('shows signing errors and validation details with a reload action', () => {
+        const error = new ApiError('Placement changed', 409, 'stale_placement', { placement_fingerprint: ['Save the new placement first'] });
+        const markup = renderToStaticMarkup(createElement(PlacementError, { error, busy: false, onReload: vi.fn() }));
+        expect(markup).toContain('role="alert"');
+        expect(markup).toContain('Placement changed');
+        expect(markup).toContain('Save the new placement first');
+        expect(markup).toContain('โหลดข้อมูลล่าสุดและเริ่มใหม่');
+    });
+
+    it('shows a success notice only on the version opened by the completed signing action', () => {
+        expect(renderPage(context(), { signedVersionId: route.versionId }).markup).toContain('ลงนามสำเร็จแล้ว');
+        expect(renderPage(context(), { signedVersionId: 'another-version' }).markup).not.toContain('ลงนามสำเร็จแล้ว');
+        expect(renderPage(context()).markup).not.toContain('ลงนามสำเร็จแล้ว');
     });
 });

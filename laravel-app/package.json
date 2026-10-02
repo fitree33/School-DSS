@@ -11,6 +11,7 @@
         "dev": "vite",
         "build": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json && vite build",
         "test": "vitest run",
+        "test:pdf": "node --test scripts/pdf/*.test.mjs",
         "typecheck": "tsc --noEmit -p tsconfig.app.json && tsc --noEmit -p tsconfig.node.json"
     },
     "devDependencies": {
@@ -31,6 +32,7 @@
     "dependencies": {
         "@tanstack/react-query": "5.101.4",
         "axios": "1.19.0",
+        "pdf-lib": "1.17.1",
         "pdfjs-dist": "5.4.624",
         "react": "19.2.8",
         "react-dom": "19.2.8",

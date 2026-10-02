@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources\Api\V2;
 
+use App\Services\Signatures\PlacementFingerprint;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -20,6 +21,7 @@ class SignaturePlacementResource extends JsonResource
             'width' => $this->width,
             'height' => $this->height,
             'updated_at' => $this->updated_at?->toISOString(),
+            'fingerprint' => PlacementFingerprint::for($this->resource),
             'stale' => $this->assignment_revision !== $this->slot->assignment_revision
                 || $this->updated_by !== $this->slot->assigned_user_id
                 || ! $this->asset->isEligibleForSigning(),

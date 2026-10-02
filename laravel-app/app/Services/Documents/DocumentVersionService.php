@@ -111,7 +111,8 @@ final class DocumentVersionService
         DocumentVersionCreatedVia $createdVia,
         ?User $actor,
     ): void {
-        if (! $document->exists
+        if ($createdVia === DocumentVersionCreatedVia::Signature
+            || ! $document->exists
             || ($createdVia === DocumentVersionCreatedVia::Backfill && $actor !== null)
             || ($createdVia !== DocumentVersionCreatedVia::Backfill && (! $actor?->exists))) {
             throw new LogicException('A persisted document and the correct registration actor are required.');
@@ -179,19 +180,21 @@ final class DocumentVersionService
 
     private function initialVersion(ProjectDocument $document, bool $lock = false): ?DocumentVersion
     {
-        $query = DocumentVersion::query()->where('project_document_id', $document->getKey());
+        $query = DocumentVersion::query()->where('project_document_id', $document->getKey())
+            ->where('revision_no', 1);
 
         if ($lock) {
             $query->lockForUpdate();
         }
 
-        $versions = $query->get();
-
-        if ($versions->count() > 1 || ($versions->isNotEmpty() && (int) $versions->first()->revision_no !== 1)) {
+        $initial = $query->first();
+        // Derived versions must not make baseline registration non-idempotent,
+        // but a registry without its original revision is still inconsistent.
+        if ($initial === null && DocumentVersion::query()->where('project_document_id', $document->getKey())->exists()) {
             throw $this->baselineConflict();
         }
 
-        return $versions->first();
+        return $initial;
     }
 
     private function assertSameBaseline(DocumentVersion $version, VerifiedDocumentBlob $blob): void

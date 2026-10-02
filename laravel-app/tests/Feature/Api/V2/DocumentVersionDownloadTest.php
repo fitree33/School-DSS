@@ -17,11 +17,13 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\Feature\Api\V2\Concerns\BuildsPhaseFiveImports;
 use Tests\TestCase;
+use Tests\Feature\Concerns\UsesPrivateSignatureStorage;
 
 class DocumentVersionDownloadTest extends TestCase
 {
     use BuildsPhaseFiveImports;
     use RefreshDatabase;
+    use UsesPrivateSignatureStorage;
 
     protected function setUp(): void
     {
@@ -31,6 +33,7 @@ class DocumentVersionDownloadTest extends TestCase
         Storage::fake('project-imports');
         Storage::fake('version-download-source');
         Storage::fake('version-download-temp');
+        $this->protectSignatureFixtureDirectory(rtrim(Storage::disk('version-download-temp')->path(''), '/\\'));
         config()->set('filesystems.disks.version-download-source', [
             'driver' => 'local',
             'root' => Storage::disk('version-download-source')->path(''),
